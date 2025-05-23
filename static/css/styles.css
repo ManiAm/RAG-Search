@@ -1,0 +1,88 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  background: #f2f2f2;
+}
+
+.tab-bar {
+  display: flex;
+  background: #444;
+}
+
+.tab {
+  flex: 1;
+  padding: 1rem;
+  background: #666;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #0a9915;
+}
+
+.chat-container {
+  max-width: 900px;
+  margin: auto;
+  padding: 1rem;
+  background: white;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  overflow-wrap: break-word;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.visible {
+  display: block;
+}
+
+textarea, select, input[type="text"] {
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-top: 0.5rem;
+}
+
+button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #0066cc;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-box {
+  border: 1px solid #ddd;
+  padding: 1rem;
+  background: #fefefe;
+  margin-top: 1.5rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border-radius: 6px;
+}
+
+.response-box {
+  border: 1px solid #ccc;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  height: 300px;
+  overflow-y: auto;
+  background: #f9f9f9;
+  white-space: normal;
+}
+
+.response-box p {
+  margin: 0.5em 0;
+}
