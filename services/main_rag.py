@@ -20,7 +20,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.schema.document import Document
 
-from services import config
+import config
 from services.ollama_models import OllamaModels
 from services.qdrant_db import Qdrant_DB
 from services.streaming import token_generator, QueueCallbackHandler
@@ -40,6 +40,11 @@ session_histories: Dict[str, ChatMessageHistory] = {}
 
 app = APIRouter(prefix="/rag", tags=["rag"])
 
+class CollectionRequest(BaseModel):
+    collection_name: str
+    embed_model: str
+
+
 class ChatRequest(BaseModel):
     llm_model: str
     embed_model: str
@@ -54,6 +59,57 @@ def get_embed_models():
 
     models = qdrant_obj.list_models()
     return {"models": models}
+
+
+@app.get("/debug-search")
+def debug_search(
+    query: str = Query(..., description="Your semantic search query"),
+    embed_model: str = Query(..., description="The embedding model used"),
+    collection_name: str = Query(..., description="The Collection name"),
+    k: int = Query(5, description="Number of top results to return")
+):
+
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /debug-search called with query='{query}', embed_model='{embed_model}', k={k}")
+
+    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=k)
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    retriever = output
+
+    try:
+        matches = retriever.invoke(query)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Return just the page content and optional metadata
+    return {
+        "query": query,
+        "results": [
+            {
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            } for doc in matches
+        ]
+    }
+
+
+@app.post("/create-collection")
+def create_collection(req: CollectionRequest):
+
+    embed_model = req.embed_model
+    collection_name = req.collection_name
+
+    status, output = qdrant_obj.create_collection(embed_model, collection_name)
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    return {
+        "status": "ok",
+        "embed_model": embed_model,
+        "collection_name": collection_name
+    }
 
 
 @app.post("/upload")
@@ -154,40 +210,6 @@ def paste_text(req: Dict[str, str]):
         "embed_model": embed_model,
         "collection_name": collection_name,
         "chunks": len(filtered_chunks)
-    }
-
-
-@app.get("/debug-search")
-def debug_search(
-    query: str = Query(..., description="Your semantic search query"),
-    embed_model: str = Query(..., description="The embedding model used"),
-    collection_name: str = Query(..., description="The Collection name"),
-    k: int = Query(5, description="Number of top results to return")
-):
-
-    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{ts}: /debug-search called with query='{query}', embed_model='{embed_model}', k={k}")
-
-    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=k)
-    if not status:
-        raise HTTPException(status_code=400, detail=output)
-
-    retriever = output
-
-    try:
-        matches = retriever.invoke(query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # Return just the page content and optional metadata
-    return {
-        "query": query,
-        "results": [
-            {
-                "content": doc.page_content,
-                "metadata": doc.metadata
-            } for doc in matches
-        ]
     }
 
 

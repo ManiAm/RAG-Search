@@ -14,7 +14,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
-from services import config
+import config
 from services.ollama_models import OllamaModels
 from services.streaming import token_generator, QueueCallbackHandler
 

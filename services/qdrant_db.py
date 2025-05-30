@@ -42,11 +42,6 @@ class Qdrant_DB():
             return False
 
 
-    def get_collection_name(self, collection_name):
-
-        return collection_name.replace("/", "_")
-
-
     def list_models(self):
 
         remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
@@ -54,7 +49,12 @@ class Qdrant_DB():
         return model_list
 
 
-    def get_store(self, embed_model, collection_name, create_collection=True):
+    def get_collection_name(self, collection_name):
+
+        return collection_name.replace("/", "_")
+
+
+    def create_collection(self, embed_model, collection_name):
 
         vector_size = self.embed_model_info.get(embed_model, None)
         if not vector_size:
@@ -64,16 +64,29 @@ class Qdrant_DB():
 
         if not self.qdrant_client.collection_exists(collection_name):
 
-            if create_collection:
+            try:
 
                 self.qdrant_client.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
                 )
 
-            else:
+            except Exception as e:
+                return False, str(e)
 
+        return True, None
+
+
+    def get_store(self, embed_model, collection_name, create_collection=True):
+
+        if not self.qdrant_client.collection_exists(collection_name):
+
+            if not create_collection:
                 return False, f"collection '{collection_name}' does not exist."
+
+            status, output = self.create_collection(embed_model, collection_name)
+            if not status:
+                return False, output
 
         embedding = RemoteEmbedding(endpoint=f"{self.embedding_url}/embed", model=embed_model)
 

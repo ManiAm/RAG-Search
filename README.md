@@ -133,7 +133,7 @@ Port 6333 is used for interacting with Qdrant via RESTful endpoints, and port 63
 
 ### Update config.py
 
-Update the service endpoint URLs in [config.py](services/config.py) as needed:
+Update the service endpoint URLs in [config.py](config.py) as needed:
 
     ollama_url = "http://..."        # URL for the Ollama LLM server
     qdrant_url = "http://..."        # URL for the Qdrant vector database
