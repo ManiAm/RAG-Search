@@ -18,15 +18,18 @@ class Qdrant_DB():
         self.qdrant_url = qdrant_url
         self.embedding_url = embedding_url
 
-        self.store_dict = {}
-
         if not self.check_qdrant_health(qdrant_url):
             print("Qdrant host is not reachable")
             sys.exit(1)
 
         self.qdrant_client = QdrantClient(url=qdrant_url)
 
-        self.init()
+        remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
+        if not remote_embed.check_health():
+            print("Remote embedding server is not reachable")
+            sys.exit(1)
+
+        self.embed_model_info = remote_embed.get_vector_sizes()
 
 
     def check_qdrant_health(self, url):
@@ -39,18 +42,9 @@ class Qdrant_DB():
             return False
 
 
-    def get_collection_name(self, embed_model):
+    def get_collection_name(self, collection_name):
 
-        return embed_model.replace("/", "_")
-
-
-    def get_model_store(self, embed_model):
-
-        model_store_dict = self.store_dict.get(embed_model, None)
-        if not model_store_dict:
-            return False, f"Embedding model '{embed_model}' not loaded."
-
-        return True, model_store_dict
+        return collection_name.replace("/", "_")
 
 
     def list_models(self):
@@ -60,53 +54,45 @@ class Qdrant_DB():
         return model_list
 
 
-    def init(self):
+    def get_store(self, embed_model, collection_name, create_collection=True):
 
-        remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
+        vector_size = self.embed_model_info.get(embed_model, None)
+        if not vector_size:
+            return False, f"Cannot get vector size of embed_model '{embed_model}'"
 
-        if not remote_embed.check_health():
-            sys.exit(1)
+        collection_name = self.get_collection_name(collection_name)
 
-        model_size = remote_embed.get_vector_sizes()
+        if not self.qdrant_client.collection_exists(collection_name):
 
-        for model_name, vector_size in model_size.items():
+            if create_collection:
 
-            print(f"Initializing embedding model '{model_name}'...")
-
-            collection_name = self.get_collection_name(model_name)
-
-            if not self.qdrant_client.collection_exists(collection_name):
                 self.qdrant_client.create_collection(
                     collection_name=collection_name,
                     vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE)
                 )
 
-            embedding = RemoteEmbedding(endpoint=f"{self.embedding_url}/embed", model=model_name)
+            else:
 
-            store = QdrantVectorStore(
-                client=self.qdrant_client,
-                collection_name=collection_name,
-                embedding=embedding,
-            )
+                return False, f"collection '{collection_name}' does not exist."
 
-            self.store_dict[model_name] = {
-                "collection_name": collection_name,
-                "qdrant_client": self.qdrant_client,
-                "qdrant_store": store
-            }
+        embedding = RemoteEmbedding(endpoint=f"{self.embedding_url}/embed", model=embed_model)
+
+        store = QdrantVectorStore(
+            client=self.qdrant_client,
+            collection_name=collection_name,
+            embedding=embedding,
+        )
+
+        return True, store
 
 
-    def add_documents(self, embed_model, chunks, batch_size=100):
+    def add_documents(self, embed_model, collection_name, chunks, batch_size=100):
 
-        status, output = self.get_model_store(embed_model)
+        status, output = self.get_store(embed_model, collection_name)
         if not status:
             return False, output
 
-        model_store_dict = output
-
-        collection_name = model_store_dict.get("collection_name")
-        qdrant_client = model_store_dict.get("qdrant_client")
-        qdrant_store = model_store_dict.get("qdrant_store")
+        qdrant_store = output
 
         #########
 
@@ -123,9 +109,9 @@ class Qdrant_DB():
 
             # Check if point_id already exists
             try:
-                existing = qdrant_client.retrieve(collection_name=collection_name, ids=[point_id])
+                existing = self.qdrant_client.retrieve(collection_name=collection_name, ids=[point_id])
             except Exception as e:
-                return False, f"Qdrant_DB::add_documents: {str(e)}"
+                return False, {str(e)}
 
             if existing:
                 print(f"Skipped duplicate: '{content[:60]}'")
@@ -145,7 +131,7 @@ class Qdrant_DB():
         return True, None
 
 
-    def get_retriever(self, embed_model, search_type="similarity", k=6):
+    def get_retriever(self, embed_model, collection_name, search_type="similarity", k=6):
         """
         search_type defines the type of search that the Retriever should perform:
 
@@ -154,13 +140,11 @@ class Qdrant_DB():
             "similarity_score_threshold" : Returns only documents with a similarity score above a given threshold.
         """
 
-        status, output = self.get_model_store(embed_model)
+        status, output = self.get_store(embed_model, collection_name, create_collection=False)
         if not status:
             return False, output
 
-        model_store_dict = output
-
-        qdrant_store = model_store_dict.get("qdrant_store")
+        qdrant_store = output
 
         retriever = qdrant_store.as_retriever(search_type=search_type, k=k)
 

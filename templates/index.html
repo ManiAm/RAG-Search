@@ -24,59 +24,75 @@
 
     <!-- LLM Tab -->
     <div id="tab-llm" class="tab-content visible">
+
       <h2>LLM Chat</h2>
+
       <label>LLM Model</label>
       <select id="llmModel"></select>
+
       <label>Session ID</label>
       <input type="text" id="sessionIdLlm" />
+
       <label>Enable Streaming</label>
       <input type="checkbox" id="streamLlm" />
 
-        <div class="chat-box">
-            <label>Your Question</label>
-            <textarea id="questionLlm" rows="2"></textarea>
+      <div class="chat-box">
 
-            <label>Context (Optional)</label>
-            <textarea id="contextLlm" rows="4">
+          <label>Your Question</label>
+          <textarea id="questionLlm" rows="2"></textarea>
+
+          <label>Context (Optional)</label>
+          <textarea id="contextLlm" rows="4">
 You're a helpful assistant. Answer questions clearly and concisely.</textarea>
 
-            <button onclick="sendLlm()">Send</button>
-            <div contenteditable="true" id="responseBoxLlm" class="response-box"></div>
-        </div>
+          <button onclick="sendLlm()">Send</button>
+          <div contenteditable="true" id="responseBoxLlm" class="response-box"></div>
+      </div>
     </div>
 
     <!-- RAG Tab -->
     <div id="tab-rag" class="tab-content">
+
       <h2>RAG Chat</h2>
+
       <label>LLM Model</label>
       <select id="llmModelRag"></select>
+
       <label>Embedding Model</label>
       <select id="embedModel"></select>
+
+      <label>Collection Name</label>
+      <input type="text" id="collectionNameRag" />
+
       <label>Session ID</label>
       <input type="text" id="sessionIdRag" />
+
       <label>Enable Streaming</label>
       <input type="checkbox" id="streamRag" />
+
       <label>Upload File</label>
       <input type="file" id="fileInput" />
       <button onclick="uploadFile()">Upload</button>
+
       <label>Paste Document</label>
       <textarea id="pastedDoc" rows="20"></textarea>
       <button onclick="uploadPaste()">Submit</button>
 
-        <div class="chat-box">
-            <label>Your Question</label>
-            <textarea id="questionRag" rows="2"></textarea>
+      <div class="chat-box">
 
-            <label>Instructions (Optional)</label>
-            <textarea id="instructionsRag" rows="4">
+          <label>Your Question</label>
+          <textarea id="questionRag" rows="2"></textarea>
+
+          <label>Instructions (Optional)</label>
+          <textarea id="instructionsRag" rows="4">
 You are a helpful assistant. Use the context provided below to answer the question as accurately as possible.
 If you are unsure or the answer is not clearly present in the context, respond with "I don't know."
 Keep your answers concise and factual.
-            </textarea>
+          </textarea>
 
-            <button onclick="sendRag()">Send</button>
-            <div contenteditable="true" id="responseBoxRag" class="response-box"></div>
-        </div>
+          <button onclick="sendRag()">Send</button>
+          <div contenteditable="true" id="responseBoxRag" class="response-box"></div>
+      </div>
     </div>
   </div>
 

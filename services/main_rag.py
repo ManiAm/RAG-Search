@@ -29,7 +29,8 @@ ollama_obj = OllamaModels(config.ollama_url)
 if not ollama_obj.check_health():
     sys.exit(1)
 
-qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url, embedding_url=config.embedding_url)
+qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url,
+                       embedding_url=config.embedding_url)
 
 os.makedirs(config.upload_dir, exist_ok=True)
 
@@ -40,9 +41,10 @@ session_histories: Dict[str, ChatMessageHistory] = {}
 app = APIRouter(prefix="/rag", tags=["rag"])
 
 class ChatRequest(BaseModel):
-    question: str
-    embed_model: str
     llm_model: str
+    embed_model: str
+    collection_name: str
+    question: str
     session_id: Optional[str] = None
     instructions: Optional[str] = None
 
@@ -55,13 +57,14 @@ def get_embed_models():
 
 
 @app.post("/upload")
-def upload_file(file: UploadFile = File(...), embed_model: str = Query()):
+def upload_file(file: UploadFile = File(...), embed_model: str = Query(), collection_name: str = Query()):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     filename = file.filename or "uploaded_file"
+    collection_name = collection_name or embed_model
 
-    print(f"{ts}: /upload endpoint called with filename '{filename}', embed_model '{embed_model}'.")
+    print(f"{ts}: /upload endpoint called with filename '{filename}', embed_model '{embed_model}', collection_name '{collection_name}'.")
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: saving document...")
@@ -97,7 +100,9 @@ def upload_file(file: UploadFile = File(...), embed_model: str = Query()):
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: embedding document...")
 
-    status, output = qdrant_obj.add_documents(embed_model, filtered_chunks)
+    status, output = qdrant_obj.add_documents(embed_model,
+                                              collection_name,
+                                              filtered_chunks)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
@@ -107,6 +112,7 @@ def upload_file(file: UploadFile = File(...), embed_model: str = Query()):
     return {
         "status": "ok",
         "embed_model": embed_model,
+        "collection_name": collection_name,
         "file": file.filename
     }
 
@@ -116,12 +122,15 @@ def paste_text(req: Dict[str, str]):
 
     text = req.get("text", "").strip()
     embed_model = req.get("embed_model", "")
+    collection_name = req.get("collection_name", "").strip()
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
 
     if not embed_model:
         raise HTTPException(status_code=400, detail="No embed_model provided.")
+
+    collection_name = collection_name or embed_model
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: /paste endpoint called with embed_model '{embed_model}'.")
@@ -134,13 +143,16 @@ def paste_text(req: Dict[str, str]):
 
     filtered_chunks = filter_complex_metadata(chunks)
 
-    status, output = qdrant_obj.add_documents(embed_model, filtered_chunks)
+    status, output = qdrant_obj.add_documents(embed_model,
+                                              collection_name,
+                                              filtered_chunks)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
     return {
         "status": "ok",
         "embed_model": embed_model,
+        "collection_name": collection_name,
         "chunks": len(filtered_chunks)
     }
 
@@ -149,13 +161,14 @@ def paste_text(req: Dict[str, str]):
 def debug_search(
     query: str = Query(..., description="Your semantic search query"),
     embed_model: str = Query(..., description="The embedding model used"),
+    collection_name: str = Query(..., description="The Collection name"),
     k: int = Query(5, description="Number of top results to return")
 ):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: /debug-search called with query='{query}', embed_model='{embed_model}', k={k}")
 
-    status, output = qdrant_obj.get_retriever(embed_model, k=k)
+    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=k)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
@@ -183,18 +196,19 @@ def chat(req: ChatRequest):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    session_id = req.session_id or "default"
-    question = req.question
     llm_model = req.llm_model
     embed_model = req.embed_model
+    collection_name = req.collection_name or embed_model
+    session_id = req.session_id or "default"
     instructions = req.instructions or ""
+    question = req.question
 
-    print(f"{ts}: /chat endpoint called with session_id '{session_id}', llm_model '{llm_model}', embed_model '{embed_model}'")
+    print(f"{ts}: /chat endpoint called with llm_model '{llm_model}', embed_model '{embed_model}', collection_name '{collection_name}', session_id '{session_id}'")
 
     if session_id not in session_histories:
         session_histories[session_id] = ChatMessageHistory()
 
-    status, output = qdrant_obj.get_retriever(embed_model, k=15)
+    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=15)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
@@ -272,18 +286,19 @@ def chat_stream(req: ChatRequest):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    session_id = req.session_id or "default"
-    question = req.question
     llm_model = req.llm_model
     embed_model = req.embed_model
+    collection_name = req.collection_name or embed_model
+    session_id = req.session_id or "default"
     instructions = req.instructions or ""
+    question = req.question
 
-    print(f"{ts}: /chat-stream endpoint called with session_id '{session_id}', llm_model '{llm_model}', embed_model '{embed_model}''")
+    print(f"{ts}: /chat-stream endpoint called with llm_model '{llm_model}', embed_model '{embed_model}', collection_name '{collection_name}', session_id '{session_id}'")
 
     if session_id not in session_histories:
         session_histories[session_id] = ChatMessageHistory()
 
-    status, output = qdrant_obj.get_retriever(embed_model, k=15)
+    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=15)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 

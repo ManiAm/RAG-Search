@@ -78,20 +78,31 @@ async function sendLlm() {
     session_id: document.getElementById("sessionIdLlm").value,
     context: document.getElementById("contextLlm").value
   };
+
   const stream = document.getElementById("streamLlm").checked;
   const url = stream ? "/api/v1/llm/chat-stream" : "/api/v1/llm/chat";
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
 
-  if (stream) {
-    await streamAndRender(res, targetId);
-  } else {
-    const data = await res.json();
-    appendToResponse(targetId, data.answer);
+    if (!res.ok) {
+      const errorText = await res.text();
+      alert(`Error ${res.status}: ${errorText}`);
+      return;
+    }
+
+    if (stream) {
+      await streamAndRender(res, targetId);
+    } else {
+      const data = await res.json();
+      appendToResponse(targetId, data.answer);
+    }
+  } catch (err) {
+    alert("Failed to reach server: " + err.message);
   }
 }
 
@@ -103,55 +114,101 @@ async function sendRag() {
     question: document.getElementById("questionRag").value,
     llm_model: document.getElementById("llmModelRag").value,
     embed_model: document.getElementById("embedModel").value,
+    collection_name: document.getElementById("collectionNameRag").value,
     session_id: document.getElementById("sessionIdRag").value,
     instructions: document.getElementById("instructionsRag").value
   };
+
   const stream = document.getElementById("streamRag").checked;
   const url = stream ? "/api/v1/rag/chat-stream" : "/api/v1/rag/chat";
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
 
-  if (stream) {
-    await streamAndRender(res, targetId);
-  } else {
-    const data = await res.json();
-    appendToResponse(targetId, data.answer);
+    if (!res.ok) {
+      const errorText = await res.text();
+      alert(`Error ${res.status}: ${errorText}`);
+      return;
+    }
+
+    if (stream) {
+      await streamAndRender(res, targetId);
+    } else {
+      const data = await res.json();
+      appendToResponse(targetId, data.answer);
+    }
+  } catch (err) {
+    alert("Failed to reach server: " + err.message);
   }
 }
 
 async function uploadFile() {
   const fileInput = document.getElementById("fileInput");
-  const file = fileInput.files[0];
   const embedModel = document.getElementById("embedModel").value;
+  const collectionName = document.getElementById("collectionNameRag").value;
 
+  if (!fileInput.files.length) {
+    alert("Please select a file to upload.");
+    return;
+  }
+
+  const file = fileInput.files[0];
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`/api/v1/rag/upload?embed_model=${encodeURIComponent(embedModel)}`, {
-    method: "POST",
-    body: formData
+  const query = new URLSearchParams({
+    embed_model: embedModel,
+    collection_name: collectionName
   });
 
-  const json = await res.json();
-  alert("Upload: " + JSON.stringify(json));
+  try {
+    const res = await fetch(`/api/v1/rag/upload?${query.toString()}`, {
+      method: "POST",
+      body: formData
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Server error: ${res.status} - ${errText}`);
+    }
+
+    const json = await res.json();
+    alert("Upload successful:\n" + JSON.stringify(json, null, 2));
+  } catch (err) {
+    alert("Upload failed:\n" + err.message);
+  }
 }
 
 async function uploadPaste() {
-  const text = document.getElementById("pastedDoc").value;
-  const embedModel = document.getElementById("embedModel").value;
+  const text = document.getElementById("pastedDoc").value.trim();
+  const embedModel = document.getElementById("embedModel").value.trim();
+  const collectionName = document.getElementById("collectionNameRag").value.trim();
 
-  const res = await fetch("/api/v1/rag/paste", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, embed_model: embedModel })
-  });
+  try {
+    const res = await fetch("/api/v1/rag/paste", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        embed_model: embedModel,
+        collection_name: collectionName
+      })
+    });
 
-  const json = await res.json();
-  alert("Pasted text: " + JSON.stringify(json));
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Server error ${res.status}: ${errorText}`);
+    }
+
+    const json = await res.json();
+    alert("Pasted text:\n" + JSON.stringify(json, null, 2));
+  } catch (err) {
+    alert("Upload failed:\n" + err.message);
+  }
 }
 
 window.onload = () => {

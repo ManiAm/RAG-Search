@@ -163,14 +163,14 @@ RAG-Talk exposes a set of RESTful API endpoints grouped into two categories:
 
 - **RAG Endpoints**: For document-enhanced retrieval-augmented generation.
 
-    | Method | Endpoint               | Description                                                             |
-    |--------|------------------------|-------------------------------------------------------------------------|
-    | GET    | /rag/embeddings        | Lists available embedding models served by the embedding server         |
-    | GET    | /rag/debug-search      | Performs a raw semantic search and returns the top matching documents   |
-    | POST   | /rag/upload            | Uploads a document to be embedded, and added to vector store            |
-    | POST   | /rag/paste             | Accepts pasted document text to embed and store                         |
-    | POST   | /rag/chat              | Performs retrieval-augmented chat using the selected embedding          |
-    | POST   | /rag/chat-stream       | Same as `/rag/chat`, but streams the model's response in real-time      |
+    | Method | Endpoint             | Description                                                             |
+    |--------|----------------------|-------------------------------------------------------------------------|
+    | GET    | /rag/embeddings      | Lists available embedding models served by the embedding server         |
+    | GET    | /rag/debug-search    | Performs a raw semantic search and returns the top matching documents   |
+    | POST   | /rag/upload          | Uploads a document to be embedded, and added to vector store            |
+    | POST   | /rag/paste           | Accepts pasted document text to embed and store                         |
+    | POST   | /rag/chat            | Performs retrieval-augmented chat using the selected embedding          |
+    | POST   | /rag/chat-stream     | Same as `/rag/chat`, but streams the model's response in real-time      |
 
 Streaming responses allow the language model to return output incrementally—token by token—rather than waiting for the entire answer to be generated before sending it. This creates a more interactive and responsive user experience, especially for longer answers, as users can begin reading the model's reply almost immediately. In RAG-Talk, streaming is supported for both direct LLM chat and RAG-based responses.
 
