@@ -1,0 +1,67 @@
+services:
+
+  embed-server:
+    build: ./embedding_server
+    container_name: embed-server
+    hostname: embed-server
+    restart: unless-stopped
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    networks:
+      - ragnet
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_rag
+    hostname: ollama_rag
+    ports:
+      - "11435:11434"
+    restart: always
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    networks:
+      - ragnet
+    volumes:
+      - ollama_data:/root/.ollama
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant_rag
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    restart: always
+    networks:
+      - ragnet
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  rag-talk:
+    build: ./core
+    container_name: rag-talk
+    hostname: rag-talk
+    tty: true
+    networks:
+      - ragnet
+    ports:
+      - "8000:8000"
+    depends_on:
+      - qdrant
+      - ollama
+      - embed-server
+
+networks:
+  ragnet:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  qdrant_data:

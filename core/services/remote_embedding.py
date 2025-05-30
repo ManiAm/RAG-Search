@@ -3,6 +3,7 @@
 # netsh interface portproxy add v4tov4 listenport=5005 listenaddress=0.0.0.0 connectport=5005 connectaddress=127.0.0.1
 
 import requests
+import time
 from typing import List, Dict
 from langchain.embeddings.base import Embeddings
 
@@ -15,14 +16,20 @@ class RemoteEmbedding(Embeddings):
 
     ####################
 
-    def check_health(self):
+    def check_health(self, max_try=5, try_wait=30):
 
-        try:
-            response = requests.get(f"{self.endpoint}/health", timeout=10)
-            return response.status_code == 200
-        except Exception as e:
-            print(f"Embedding server health check failed: {e}")
-            return False
+        for i in range(0, max_try):
+
+            try:
+                response = requests.get(f"{self.endpoint}/health", timeout=10)
+                if response.status_code == 200:
+                    return True
+            except Exception as e:
+                print(f"try ({i+1}/{max_try}): Embedding server health check failed: {e}")
+
+            time.sleep(try_wait)
+
+        return False
 
     ####################
 

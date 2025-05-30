@@ -74,15 +74,27 @@ We have configured the text splitter with a `chunk size` of 1000 and a `chunk ov
 
 ## Getting Started
 
+Build the Docker images for the project:
+
+    docker compose build
+
+Start all the containers:
+
+    docker compose up -d
+
+Allow up to one minute for the `rag-talk` container to fully initialize and start the application server. The `rag-talk` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
+
+These URLs provide access to different parts of the `rag-talk`:
+
+- Web Interface: http://localhost:8000/
+- Swagger API docs: http://localhost:8000/api/docs
+- API Base URL: http://localhost:8000/api/v1/
+
 ### Setting up Ollama Server
-
-Run Ollama server inside a docker container:
-
-    docker run -d --name ollama --gpus all -p 11434:11434 -v ollama:/root/.ollama --restart=always ollama/ollama
 
 Open an interactive shell to the container:
 
-    docker exec -it ollama bash
+    docker exec -it ollama_rag bash
 
 Run the following to confirm that the container has access to the host GPU:
 
@@ -90,7 +102,7 @@ Run the following to confirm that the container has access to the host GPU:
 
 This should return a table showing your GPU, driver version, and usage.
 
-You can also check `docker logs ollama` to ensure that the GPU is detected.
+You can also check `docker logs ollama_rag` to ensure that the GPU is detected.
 
 Pull a LLM model:
 
@@ -98,13 +110,7 @@ Pull a LLM model:
 
 ### Setting up Embedding Server
 
-Change directory to embedding_server, build and run the embed-server container:
-
-    cd embedding_server
-    docker compose build
-    docker compose up -d
-
-To verify that GPU support is working inside the `embed-server` container (e.g., for embedding or LLM inference), open an interactive shell to the container:
+To verify that GPU support is working inside the `embed-server` container, open an interactive shell to the container:
 
     docker exec -it embed-server bash
 
@@ -117,37 +123,6 @@ Confirm that CUDA is available in Python:
     python3 -c "import torch; print(torch.cuda.is_available())"
 
 This should print `True` if PyTorch detects a CUDA-compatible GPU.
-
-### Setting up Qdrant
-
-Run Qdrant inside a docker with persistant storage:
-
-    docker run -d \
-    --name qdrant \
-    -p 6333:6333 \
-    -p 6334:6334 \
-    -v $(pwd)/qdrant_storage:/qdrant/storage \
-    qdrant/qdrant
-
-Port 6333 is used for interacting with Qdrant via RESTful endpoints, and port 6334 is used for gRPC protocol.
-
-### Update config.py
-
-Update the service endpoint URLs in [config.py](config.py) as needed:
-
-    ollama_url = "http://..."        # URL for the Ollama LLM server
-    qdrant_url = "http://..."        # URL for the Qdrant vector database
-    embedding_url = "http://..."     # URL for the remote embedding server
-
-Ensure these URLs reflect the correct network location of each service, especially when deploying across multiple hosts or containers.
-
-### Start Application Server
-
-Now you should be able to invoke the `main.py`. These URLs provide access to different parts of the RAG-Talk:
-
-- Web Interface: http://localhost:8000/
-- Swagger API docs: http://localhost:8000/api/docs
-- API Base URL: http://localhost:8000/api/v1/
 
 ## API Endpoints
 

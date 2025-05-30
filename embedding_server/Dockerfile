@@ -16,10 +16,12 @@ RUN python3.10 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --upgrade pip
-RUN pip install sentence-transformers
-RUN pip install fastapi uvicorn
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 
 WORKDIR /app
+
 COPY . .
 
 EXPOSE 5005

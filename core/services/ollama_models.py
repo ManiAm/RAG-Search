@@ -1,4 +1,5 @@
 
+import time
 import requests
 
 class OllamaModels:
@@ -8,15 +9,21 @@ class OllamaModels:
         self.base_url = url.rstrip("/")
 
 
-    def check_health(self) -> bool:
+    def check_health(self, max_try=3, try_wait=10) -> bool:
         """Check if the Ollama server is reachable."""
 
-        try:
-            res = requests.get(f"{self.base_url}", timeout=5)
-            return res.status_code == 200
-        except Exception as e:
-            print(f"[Health Check Failed] {e}")
-            return False
+        for i in range(0, max_try):
+
+            try:
+                res = requests.get(f"{self.base_url}", timeout=5)
+                if res.status_code == 200:
+                    return True
+            except Exception as e:
+                print(f"try ({i+1}/{max_try}): Ollama server health check failed: {e}")
+
+            time.sleep(try_wait)
+
+        return False
 
 
     def list_models(self) -> list:
