@@ -8,7 +8,7 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-from remote_embedding import RemoteEmbedding
+from services.remote_embedding import RemoteEmbedding
 
 
 class Qdrant_DB():
@@ -122,7 +122,10 @@ class Qdrant_DB():
             point_id = hashlib.md5(content.encode()).hexdigest()
 
             # Check if point_id already exists
-            existing = qdrant_client.retrieve(collection_name=collection_name, ids=[point_id])
+            try:
+                existing = qdrant_client.retrieve(collection_name=collection_name, ids=[point_id])
+            except Exception as e:
+                return False, f"Qdrant_DB::add_documents: {str(e)}"
 
             if existing:
                 print(f"Skipped duplicate: '{content[:60]}'")

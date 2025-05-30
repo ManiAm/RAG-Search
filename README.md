@@ -133,7 +133,7 @@ Port 6333 is used for interacting with Qdrant via RESTful endpoints, and port 63
 
 ### Update config.py
 
-Update the service endpoint URLs in [config.py](config.py) as needed:
+Update the service endpoint URLs in [config.py](services/config.py) as needed:
 
     ollama_url = "http://..."        # URL for the Ollama LLM server
     qdrant_url = "http://..."        # URL for the Qdrant vector database
@@ -248,7 +248,7 @@ One of the standout features of Qdrant is its built-in web dashboard, which offe
 
 <img src="pics/qdrant_graph.png" alt="segment" width="650">
 
-With the book embedded and indexed, users can now ask natural language questions about its content using the RAG interface. For example, a query like "How did Galen influence medical theory in the Middle Ages?" would retrieve relevant context from the embedded passages and feed it to the LLM to generate a response.
+With the book embedded and indexed, users can now ask natural language questions about its content using the RAG interface. For example, a query like **"How did Galen influence medical theory in the Middle Ages?"** would retrieve relevant context from the embedded passages and feed it to the LLM to generate a response.
 
 <img src="pics/qdrant_response.png" alt="segment" width="650">
 

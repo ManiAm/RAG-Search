@@ -14,8 +14,8 @@ from fastapi import APIRouter
 logging.getLogger("qdrant_client").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-import main_llm  # Direct LLM interaction
-import main_rag  # RAG functionality
+import services.main_llm  # Direct LLM interaction
+import services.main_rag  # RAG functionality
 
 app = FastAPI(
     title="RAG-Talk API",
@@ -35,8 +35,8 @@ app.add_middleware(
 )
 
 api_v1 = APIRouter(prefix="/api/v1")
-api_v1.include_router(main_llm.app)
-api_v1.include_router(main_rag.app)
+api_v1.include_router(services.main_llm.app)
+api_v1.include_router(services.main_rag.app)
 app.include_router(api_v1)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

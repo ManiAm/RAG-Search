@@ -14,9 +14,9 @@ from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
-import config
-from ollama_models import OllamaModels
-from streaming import token_generator, QueueCallbackHandler
+from services import config
+from services.ollama_models import OllamaModels
+from services.streaming import token_generator, QueueCallbackHandler
 
 ollama_obj = OllamaModels(config.ollama_url)
 if not ollama_obj.check_health():
