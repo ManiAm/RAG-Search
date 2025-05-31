@@ -61,8 +61,11 @@ You're a helpful assistant. Answer questions clearly and concisely.</textarea>
       <label>Embedding Model</label>
       <select id="embedModel"></select>
 
-      <label>Collection Name</label>
-      <input type="text" id="collectionNameRag" />
+      <div class="input-group">
+        <label for="collectionNameRag" class="input-label">Collection Name</label>
+        <input type="text" id="collectionNameRag" list="collectionNames" class="styled-input" placeholder="Type or select a collection..." />
+        <datalist id="collectionNames"></datalist>
+      </div>
 
       <label>Session ID</label>
       <input type="text" id="sessionIdRag" />

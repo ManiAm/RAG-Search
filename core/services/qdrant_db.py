@@ -1,12 +1,14 @@
 
-import requests
 import sys
+import requests
 import hashlib
 
 from langchain.schema import Document
 from langchain_qdrant import QdrantVectorStore
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
+from qdrant_client.http.models import Filter, FieldCondition, MatchValue, FilterSelector
 
 from services.remote_embedding import RemoteEmbedding
 
@@ -47,6 +49,15 @@ class Qdrant_DB():
         remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
         model_list = remote_embed.list_models()
         return model_list
+
+
+    def list_collections(self):
+
+        collections = self.qdrant_client.get_collections().collections
+
+        return [
+            c.name for c in collections
+        ]
 
 
     def get_collection_name(self, collection_name):
@@ -162,3 +173,21 @@ class Qdrant_DB():
         retriever = qdrant_store.as_retriever(search_type=search_type, k=k)
 
         return True, retriever
+
+
+    def delete_points_by_filter(self, collection_name, filter_dict):
+
+        conditions = [
+            FieldCondition(
+                key=k,
+                match=MatchValue(value=v)
+            )
+            for k, v in filter_dict.items()
+        ]
+
+        deletion_filter = Filter(must=conditions)
+
+        return self.qdrant_client.delete(
+            collection_name=collection_name,
+            points_selector=FilterSelector(filter=deletion_filter)
+        )

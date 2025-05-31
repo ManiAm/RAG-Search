@@ -16,7 +16,7 @@ class RemoteEmbedding(Embeddings):
 
     ####################
 
-    def check_health(self, max_try=5, try_wait=30):
+    def check_health(self, max_try=10, try_wait=30):
 
         for i in range(0, max_try):
 

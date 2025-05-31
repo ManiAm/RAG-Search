@@ -42,8 +42,11 @@ async function streamAndRender(res, targetId) {
 async function loadModels() {
   const llmRes = await fetch("/api/v1/llm/models");
   const ragRes = await fetch("/api/v1/rag/embeddings");
+  const collRes = await fetch("/api/v1/rag/collections");
+
   const llms = await llmRes.json();
   const embs = await ragRes.json();
+  const collections = await collRes.json();
 
   const llmDropdowns = [document.getElementById("llmModel"), document.getElementById("llmModelRag")];
   llmDropdowns.forEach(sel => {
@@ -65,6 +68,14 @@ async function loadModels() {
     opt.text = m;
     if (idx === 0 || m === "bge-large-en-v1.5") opt.selected = true; // set default
     embedSel.appendChild(opt);
+  });
+
+  const datalist = document.getElementById("collectionNames");
+  datalist.innerHTML = "";
+  collections.forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    datalist.appendChild(opt);
   });
 }
 

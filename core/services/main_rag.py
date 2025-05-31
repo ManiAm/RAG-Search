@@ -1,7 +1,8 @@
 
 import os
 import sys
-from typing import Dict, Optional
+import json
+from typing import Dict, Optional, Any
 from datetime import datetime
 from queue import Queue
 
@@ -45,6 +46,18 @@ class CollectionRequest(BaseModel):
     embed_model: str
 
 
+class DeleteByFilterRequest(BaseModel):
+    collection_name: str
+    filter: Dict[str, Any]
+
+
+class PasteRequest(BaseModel):
+    text: str
+    embed_model: str
+    collection_name: Optional[str] = None
+    metadata: Optional[str] = None
+
+
 class ChatRequest(BaseModel):
     llm_model: str
     embed_model: str
@@ -59,6 +72,12 @@ def get_embed_models():
 
     models = qdrant_obj.list_models()
     return {"models": models}
+
+
+@app.get("/collections")
+def list_collections():
+
+    return qdrant_obj.list_collections()
 
 
 @app.get("/debug-search")
@@ -110,6 +129,31 @@ def create_collection(req: CollectionRequest):
         "embed_model": embed_model,
         "collection_name": collection_name
     }
+
+
+@app.post("/del-by-filter")
+def delete_by_filter(req: DeleteByFilterRequest):
+
+    collection = req.collection_name.strip()
+    filter_dict = req.filter
+
+    if not collection or not filter_dict:
+        raise HTTPException(status_code=400, detail="Missing required fields.")
+
+    print(f"Deleting embeddings in '{collection}' with filter: {filter_dict}")
+
+    try:
+        delete_response  = qdrant_obj.delete_points_by_filter(collection, filter_dict)
+
+        return {
+            "status": "ok",
+            "collection_name": collection,
+            "filter": filter_dict,
+            "qdrant_response": str(delete_response.status)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/upload")
@@ -174,11 +218,12 @@ def upload_file(file: UploadFile = File(...), embed_model: str = Query(), collec
 
 
 @app.post("/paste")
-def paste_text(req: Dict[str, str]):
+def paste_text(req: PasteRequest):
 
-    text = req.get("text", "").strip()
-    embed_model = req.get("embed_model", "")
-    collection_name = req.get("collection_name", "").strip()
+    text = req.text.strip()
+    embed_model = req.embed_model.strip()
+    collection_name = (req.collection_name or embed_model).strip()
+    metadata = json.loads(req.metadata) if req.metadata else {}
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
@@ -192,7 +237,7 @@ def paste_text(req: Dict[str, str]):
     print(f"{ts}: /paste endpoint called with embed_model '{embed_model}'.")
 
     # Convert to Document object
-    doc = Document(page_content=text)
+    doc = Document(page_content=text, metadata=metadata)
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents([doc])

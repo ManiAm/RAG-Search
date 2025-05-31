@@ -4,6 +4,8 @@ services:
     build: ./embedding_server
     container_name: embed-server
     hostname: embed-server
+    ports:
+      - "5005:5005"
     restart: unless-stopped
     runtime: nvidia
     deploy:
