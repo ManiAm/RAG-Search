@@ -138,7 +138,6 @@ class Qdrant_DB():
                 return False, {str(e)}
 
             if existing:
-                print(f"Skipped duplicate: '{content[:60]}'")
                 continue
 
             valid_docs.append(doc)

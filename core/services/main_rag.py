@@ -2,7 +2,7 @@
 import os
 import sys
 import json
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from datetime import datetime
 from queue import Queue
 
@@ -30,8 +30,7 @@ ollama_obj = OllamaModels(config.ollama_url)
 if not ollama_obj.check_health():
     sys.exit(1)
 
-qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url,
-                       embedding_url=config.embedding_url)
+qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url, embedding_url=config.embedding_url)
 
 os.makedirs(config.upload_dir, exist_ok=True)
 
@@ -56,6 +55,8 @@ class PasteRequest(BaseModel):
     embed_model: str
     collection_name: Optional[str] = None
     metadata: Optional[str] = None
+    separators: Optional[List[str]] = None
+    chunk_size: Optional[int] = None
 
 
 class ChatRequest(BaseModel):
@@ -120,6 +121,9 @@ def create_collection(req: CollectionRequest):
     embed_model = req.embed_model
     collection_name = req.collection_name
 
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /create-collection called with collection_name='{collection_name}', embed_model='{embed_model}'")
+
     status, output = qdrant_obj.create_collection(embed_model, collection_name)
     if not status:
         raise HTTPException(status_code=400, detail=output)
@@ -137,10 +141,11 @@ def delete_by_filter(req: DeleteByFilterRequest):
     collection = req.collection_name.strip()
     filter_dict = req.filter
 
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /del-by-filter endpoint called with collection '{collection}', filter: {filter_dict}")
+
     if not collection or not filter_dict:
         raise HTTPException(status_code=400, detail="Missing required fields.")
-
-    print(f"Deleting embeddings in '{collection}' with filter: {filter_dict}")
 
     try:
         delete_response  = qdrant_obj.delete_points_by_filter(collection, filter_dict)
@@ -188,7 +193,10 @@ def upload_file(file: UploadFile = File(...), embed_model: str = Query(), collec
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: splitting document...")
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000,
+                                              chunk_overlap=200,
+                                              separators=["\n\n", "\n", " ", ""])
+
     chunks = splitter.split_documents(documents)
 
     # Filter out metadata types that are not supported for a vector store.
@@ -224,6 +232,8 @@ def paste_text(req: PasteRequest):
     embed_model = req.embed_model.strip()
     collection_name = (req.collection_name or embed_model).strip()
     metadata = json.loads(req.metadata) if req.metadata else {}
+    separators = req.separators or ["\n\n", "\n", " ", ""]
+    chunk_size = req.chunk_size or 1000
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
@@ -239,7 +249,10 @@ def paste_text(req: PasteRequest):
     # Convert to Document object
     doc = Document(page_content=text, metadata=metadata)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
+                                              chunk_overlap=200,
+                                              separators=separators)
+
     chunks = splitter.split_documents([doc])
 
     filtered_chunks = filter_complex_metadata(chunks)
