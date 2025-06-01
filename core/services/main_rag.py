@@ -29,6 +29,7 @@ from services.streaming import token_generator, QueueCallbackHandler
 ollama_obj = OllamaModels(config.ollama_url)
 if not ollama_obj.check_health():
     sys.exit(1)
+print("Ollama server is reachable.")
 
 qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url, embedding_url=config.embedding_url)
 
@@ -86,8 +87,7 @@ def debug_search(
     query: str = Query(..., description="Your semantic search query"),
     embed_model: str = Query(..., description="The embedding model used"),
     collection_name: str = Query(..., description="The Collection name"),
-    k: int = Query(5, description="Number of top results to return")
-):
+    k: int = Query(5, description="Number of top results to return")):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: /debug-search called with query='{query}', embed_model='{embed_model}', k={k}")
@@ -162,12 +162,18 @@ def delete_by_filter(req: DeleteByFilterRequest):
 
 
 @app.post("/upload")
-def upload_file(file: UploadFile = File(...), embed_model: str = Query(), collection_name: str = Query()):
+def upload_file(file: UploadFile = File(...),
+                embed_model: str = Query(),
+                collection_name: str = Query(),
+                chunk_size: Optional[int] = None,
+                separators: Optional[List[str]] = None):
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     filename = file.filename or "uploaded_file"
     collection_name = collection_name or embed_model
+    chunk_size = chunk_size or 1000
+    separators = separators or ["\n\n", "\n", " ", ""]
 
     print(f"{ts}: /upload endpoint called with filename '{filename}', embed_model '{embed_model}', collection_name '{collection_name}'.")
 
@@ -193,9 +199,17 @@ def upload_file(file: UploadFile = File(...), embed_model: str = Query(), collec
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: splitting document...")
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000,
+    max_tokens_map = qdrant_obj.get_model_max_token()
+    max_tokens = max_tokens_map.get(embed_model, None)
+    avg_chars_per_token = 3.5  # in English
+    approx_max_characters = max_tokens * avg_chars_per_token
+
+    if chunk_size > approx_max_characters:
+        print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
                                               chunk_overlap=200,
-                                              separators=["\n\n", "\n", " ", ""])
+                                              separators=separators)
 
     chunks = splitter.split_documents(documents)
 
@@ -232,8 +246,8 @@ def paste_text(req: PasteRequest):
     embed_model = req.embed_model.strip()
     collection_name = (req.collection_name or embed_model).strip()
     metadata = json.loads(req.metadata) if req.metadata else {}
-    separators = req.separators or ["\n\n", "\n", " ", ""]
     chunk_size = req.chunk_size or 1000
+    separators = req.separators or ["\n\n", "\n", " ", ""]
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
@@ -248,6 +262,14 @@ def paste_text(req: PasteRequest):
 
     # Convert to Document object
     doc = Document(page_content=text, metadata=metadata)
+
+    max_tokens_map = qdrant_obj.get_model_max_token()
+    max_tokens = max_tokens_map.get(embed_model, None)
+    avg_chars_per_token = 3.5  # in English
+    approx_max_characters = max_tokens * avg_chars_per_token
+
+    if chunk_size > approx_max_characters:
+        print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
                                               chunk_overlap=200,

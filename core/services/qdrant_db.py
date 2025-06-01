@@ -30,8 +30,11 @@ class Qdrant_DB():
         if not remote_embed.check_health():
             print("Remote embedding server is not reachable")
             sys.exit(1)
+        print("Remote embedding server is reachable.")
 
-        self.embed_model_info = remote_embed.get_vector_sizes()
+        self.model_list = remote_embed.list_models()
+        self.vector_size_map = remote_embed.get_vector_sizes()
+        self.max_tokens_map = remote_embed.get_max_tokens()
 
 
     def check_qdrant_health(self, url):
@@ -46,9 +49,17 @@ class Qdrant_DB():
 
     def list_models(self):
 
-        remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
-        model_list = remote_embed.list_models()
-        return model_list
+        return self.model_list
+
+
+    def get_model_vector_size(self):
+
+        return self.vector_size_map
+
+
+    def get_model_max_token(self):
+
+        return self.max_tokens_map
 
 
     def list_collections(self):
@@ -67,7 +78,7 @@ class Qdrant_DB():
 
     def create_collection(self, embed_model, collection_name):
 
-        vector_size = self.embed_model_info.get(embed_model, None)
+        vector_size = self.vector_size_map.get(embed_model, None)
         if not vector_size:
             return False, f"Cannot get vector size of embed_model '{embed_model}'"
 

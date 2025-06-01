@@ -16,7 +16,7 @@ class RemoteEmbedding(Embeddings):
 
     ####################
 
-    def check_health(self, max_try=10, try_wait=30):
+    def check_health(self, max_try=30, try_wait=30):
 
         for i in range(0, max_try):
 
@@ -54,6 +54,16 @@ class RemoteEmbedding(Embeddings):
         except Exception as e:
             raise RuntimeError(f"Failed to fetch vector sizes: {str(e)}")
 
+
+    def get_max_tokens(self) -> Dict[str, int]:
+
+        try:
+            res = requests.get(f"{self.endpoint}/max-tokens", timeout=10)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch max-tokens: {str(e)}")
+
     ####################
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
@@ -74,7 +84,7 @@ class RemoteEmbedding(Embeddings):
     def _request_embeddings(self, texts: List[str]) -> dict:
 
         try:
-            res = requests.post(self.endpoint, json={"texts": texts, "model": self.model}, timeout=30)
+            res = requests.post(self.endpoint, json={"texts": texts, "model": self.model}, timeout=5*60)
             res.raise_for_status()
             return res.json()
         except requests.exceptions.HTTPError as e:

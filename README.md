@@ -70,7 +70,7 @@ In the RAG-Talk project, the document ingestion pipeline begins with the use of 
 
 After loading the documents, we use the `RecursiveCharacterTextSplitter` to divide the content into manageable chunks. This splitter intelligently breaks down long documents by recursively looking for natural split points—such as paragraph breaks or sentence boundaries—before resorting to fixed-size chunks.
 
-We have configured the text splitter with a `chunk size` of 1000 and a `chunk overlap` of 200, which provides an effective balance between semantic coherence and retrieval performance. Each chunk contains up to 1000 characters, and the 200-character overlap ensures contextual continuity between adjacent chunks—minimizing the risk of splitting important information across chunk boundaries. The optimal choice of chunk_size and chunk_overlap depends on several factors, including the capabilities of the embedding model, the structure of the source documents, and the target use case (e.g., semantic search vs. document Q&A).
+We have configured the text splitter with a `chunk_size` of 1000 characters and a `chunk_overlap` of 200, which provides an effective balance between semantic coherence and retrieval performance. Each chunk contains up to 1000 characters, and the 200-character overlap ensures contextual continuity between adjacent chunks—minimizing the risk of splitting important information across chunk boundaries. The optimal choice of `chunk_size` and `chunk_overlap` depends on several factors, including the capabilities of the embedding model, the structure of the source documents, and the target use case (e.g., semantic search vs. document Q&A).
 
 ## Getting Started
 
@@ -82,7 +82,11 @@ Start all the containers:
 
     docker compose up -d
 
-Allow up to one minute for the `rag-talk` container to fully initialize and start the application server. The `rag-talk` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
+Allow enough time for the `embed-server` container to fully download and load embedding models. You can monitor the container logs with:
+
+    docker logs -f embed-server
+
+The `rag-talk` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
 
 These URLs provide access to different parts of the `rag-talk`:
 
@@ -206,7 +210,7 @@ To test document ingestion and retrieval, plain-text books from [Project Gutenbe
 
 | Parameter       | Value                 |
 |-----------------|-----------------------|
-| chunk_size      | `1000`                |
+| chunk_size      | `1000` Characters     |
 | chunk_overlap   | `200`                 |
 | llm_model       | `llama3.1:8b`         |
 | embedding_model | `bge-large-en-v1.5`   |
