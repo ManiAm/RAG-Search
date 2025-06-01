@@ -23,12 +23,17 @@ Embedding models are machine learning models trained to generate these semantic 
 
 RAG-Talk supports multiple remote embedding models, allowing users to choose the one that best fits their use case—whether prioritizing speed, accuracy, or semantic depth. This flexibility enables users to experiment with different semantic behaviors or optimize performance by switching models on the fly.
 
-| Model Name          | Description                                                                 |
-|---------------------|-----------------------------------------------------------------------------|
-| all-MiniLM-L6-v2    | Lightweight and fast. Ideal for real-time use where lower latency is key.   |
-| all-MiniLM-L12-v2   | Slightly larger than L6, offers improved semantic quality.                  |
-| bge-base-en-v1.5    | Balanced performance and accuracy; suitable for general-purpose retrieval.  |
-| bge-large-en-v1.5   | High-accuracy model for deep semantic understanding; best for RAG tasks.    |
+| Model Name           | Description                                                                                      |
+|----------------------|--------------------------------------------------------------------------------------------------|
+| all-MiniLM-L6-v2     | Lightweight and fast. Ideal for real-time use where lower latency is key.                        |
+| all-MiniLM-L12-v2    | Slightly larger than L6, offers improved semantic quality.                                       |
+| bge-base-en-v1.5     | Balanced performance and accuracy; suitable for general-purpose retrieval.                       |
+| bge-large-en-v1.5    | High-accuracy model for deep semantic understanding; ideal for RAG and knowledge retrieval.      |
+| bge-m3               | Multilingual, long-context model (8192 tokens); great for full-document embeddings.              |
+| e5-base-v2           | Efficient, instruction-tuned model for retrieval tasks; well-balanced for performance and cost.  |
+| e5-large-v2          | Larger and more accurate variant of `e5-base-v2`; better for dense retrieval at scale.           |
+| mxbai-embed-large    | Competitive open-source model trained on diverse data; strong performance in multi-domain tasks. |
+| nomic-embed-text     | Embedding model designed for clustering and search; optimized for high recall and quality.       |
 
 RAG-Talk uses [SentenceTransformer](https://sbert.net/), a powerful library built on top of Hugging Face Transformers and PyTorch, to generate embeddings for text segments. This abstraction enables the project to convert user documents and queries into dense semantic vectors suitable for retrieval and comparison. SentenceTransformer simplifies the embedding workflow by wrapping pre-trained [transformer models](https://huggingface.co/models?library=sentence-transformers) with optimized pooling and encoding strategies, while also supporting GPU acceleration for efficient processing.
 
