@@ -26,15 +26,15 @@ class Qdrant_DB():
 
         self.qdrant_client = QdrantClient(url=qdrant_url)
 
-        remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
-        if not remote_embed.check_health():
+        self.remote_embed = RemoteEmbedding(endpoint=self.embedding_url)
+        if not self.remote_embed.check_health():
             print("Remote embedding server is not reachable")
             sys.exit(1)
         print("Remote embedding server is reachable.")
 
-        self.model_list = remote_embed.list_models()
-        self.vector_size_map = remote_embed.get_vector_sizes()
-        self.max_tokens_map = remote_embed.get_max_tokens()
+        self.model_list = []
+        self.vector_size_map = {}
+        self.max_tokens_map = {}
 
 
     def check_qdrant_health(self, url):
@@ -46,6 +46,70 @@ class Qdrant_DB():
             print(f"Qdrant health check failed: {e}")
             return False
 
+    ####################
+
+    def load_model(self, model_list):
+
+        status, output = self.remote_embed.load_model(model_list)
+        if not status:
+            return False, output
+
+        status, output = self.__update_model_vars()
+        if not status:
+            return False, output
+
+        return True, None
+
+
+    def unload_model(self, model_name):
+
+        status, output = self.remote_embed.unload_model(model_name)
+        if not status:
+            return False, output
+
+        status, output = self.__update_model_vars()
+        if not status:
+            return False, output
+
+        return True, None
+
+
+    def unload_all_models(self):
+
+        status, output = self.remote_embed.unload_all_models()
+        if not status:
+            return False, output
+
+        status, output = self.__update_model_vars()
+        if not status:
+            return False, output
+
+        return True, None
+
+
+    def __update_model_vars(self):
+
+        status, output = self.remote_embed.list_models()
+        if not status:
+            return False, output
+
+        self.model_list = output
+
+        status, output = self.remote_embed.get_vector_sizes()
+        if not status:
+            return False, output
+
+        self.vector_size_map = output
+
+        status, output = self.remote_embed.get_max_tokens()
+        if not status:
+            return False, output
+
+        self.max_tokens_map = output
+
+        return True, None
+
+    ####################
 
     def list_models(self):
 
@@ -61,6 +125,7 @@ class Qdrant_DB():
 
         return self.max_tokens_map
 
+    ####################
 
     def list_collections(self):
 

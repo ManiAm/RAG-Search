@@ -33,6 +33,15 @@ print("Ollama server is reachable.")
 
 qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url, embedding_url=config.embedding_url)
 
+embedding_models_to_load = [
+    "bge-large-en-v1.5"
+]
+print(f"Loading embedding models: {embedding_models_to_load}")
+status, output = qdrant_obj.load_model(embedding_models_to_load)
+if not status:
+    print(f"Error: {output}")
+    sys.exit(1)
+
 os.makedirs(config.upload_dir, exist_ok=True)
 
 # Session memory store (in-memory)
@@ -69,6 +78,36 @@ class ChatRequest(BaseModel):
     instructions: Optional[str] = None
 
 
+@app.post("/load-model")
+def load_model(models: List[str] = Query(...)):
+
+    status, output = qdrant_obj.load_model(models)
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    return { "success": True }
+
+
+@app.delete("/unload-model/{model_name}")
+def unload_model(model_name: str):
+
+    status, output = qdrant_obj.unload_model(model_name)
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    return { "success": True }
+
+
+@app.delete("/unload-all-models")
+def unload_all_models():
+
+    status, output = qdrant_obj.unload_all_models()
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    return { "success": True }
+
+
 @app.get("/embeddings")
 def get_embed_models():
 
@@ -80,6 +119,52 @@ def get_embed_models():
 def list_collections():
 
     return qdrant_obj.list_collections()
+
+
+@app.post("/create-collection")
+def create_collection(req: CollectionRequest):
+
+    embed_model = req.embed_model
+    collection_name = req.collection_name
+
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /create-collection called with collection_name='{collection_name}', embed_model='{embed_model}'")
+
+    status, output = qdrant_obj.create_collection(embed_model, collection_name)
+    if not status:
+        raise HTTPException(status_code=400, detail=output)
+
+    return {
+        "status": "ok",
+        "embed_model": embed_model,
+        "collection_name": collection_name
+    }
+
+
+@app.delete("/del-by-filter")
+def delete_by_filter(req: DeleteByFilterRequest):
+
+    collection = req.collection_name.strip()
+    filter_dict = req.filter
+
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /del-by-filter endpoint called with collection '{collection}', filter: {filter_dict}")
+
+    if not collection or not filter_dict:
+        raise HTTPException(status_code=400, detail="Missing required fields.")
+
+    try:
+        delete_response  = qdrant_obj.delete_points_by_filter(collection, filter_dict)
+
+        return {
+            "status": "ok",
+            "collection_name": collection,
+            "filter": filter_dict,
+            "qdrant_response": str(delete_response.status)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/debug-search")
@@ -113,52 +198,6 @@ def debug_search(
             } for doc in matches
         ]
     }
-
-
-@app.post("/create-collection")
-def create_collection(req: CollectionRequest):
-
-    embed_model = req.embed_model
-    collection_name = req.collection_name
-
-    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{ts}: /create-collection called with collection_name='{collection_name}', embed_model='{embed_model}'")
-
-    status, output = qdrant_obj.create_collection(embed_model, collection_name)
-    if not status:
-        raise HTTPException(status_code=400, detail=output)
-
-    return {
-        "status": "ok",
-        "embed_model": embed_model,
-        "collection_name": collection_name
-    }
-
-
-@app.post("/del-by-filter")
-def delete_by_filter(req: DeleteByFilterRequest):
-
-    collection = req.collection_name.strip()
-    filter_dict = req.filter
-
-    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{ts}: /del-by-filter endpoint called with collection '{collection}', filter: {filter_dict}")
-
-    if not collection or not filter_dict:
-        raise HTTPException(status_code=400, detail="Missing required fields.")
-
-    try:
-        delete_response  = qdrant_obj.delete_points_by_filter(collection, filter_dict)
-
-        return {
-            "status": "ok",
-            "collection_name": collection,
-            "filter": filter_dict,
-            "qdrant_response": str(delete_response.status)
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/upload")

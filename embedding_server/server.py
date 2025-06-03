@@ -1,7 +1,9 @@
 
 import uvicorn
 import asyncio
-from fastapi import FastAPI, Request, HTTPException
+import torch
+from fastapi import FastAPI, Request, HTTPException, Query
+from typing import List
 from concurrent.futures import ThreadPoolExecutor
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer
@@ -10,7 +12,7 @@ executor = ThreadPoolExecutor(max_workers=4)
 
 app = FastAPI()
 
-model_names = {
+supported_models = {
     "all-MiniLM-L6-v2"   : "sentence-transformers/all-MiniLM-L6-v2",
     "all-MiniLM-L12-v2"  : "sentence-transformers/all-MiniLM-L12-v2",
 
@@ -24,16 +26,7 @@ model_names = {
     "nomic-embed-text"   : "nomic-ai/nomic-embed-text-v1"
 }
 
-models = {}
-
-for name, path in model_names.items():
-
-    print(f"→ Loading embedding model: {name} ({path}) ...", flush=True)
-    try:
-        models[name] = SentenceTransformer(path, trust_remote_code=True)
-        print(f"  ✓ Model '{name}' loaded successfully.", flush=True)
-    except Exception as e:
-        print(f"  ✗ Failed to load model '{name}': {e}", flush=True)
+loaded_models = {}
 
 
 @app.get("/health")
@@ -41,11 +34,75 @@ def health():
     return {"status": "running"}
 
 
+@app.post("/load-model")
+def load_models(models: List[str] = Query(...)):
+    """Load one or more embedding models into memory"""
+
+    unsupported = [
+        m for m in models if m not in supported_models
+    ]
+
+    if unsupported:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model name(s): {', '.join(unsupported)}"
+        )
+
+    for name in models:
+
+        if name in loaded_models:
+            print(f"Model '{name}' already loaded.", flush=True)
+            continue
+
+        try:
+            path = supported_models[name]
+            print(f"→ Loading embedding model: {name} ({path}) ...", flush=True)
+            loaded_models[name] = SentenceTransformer(path, device="cuda", trust_remote_code=True)
+            print(f"  ✓ Model '{name}' loaded successfully.", flush=True)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to load model '{name}': {e}"
+            )
+
+    return { "success": True }
+
+
+@app.delete("/unload-model/{model_name}")
+def unload_model(model_name: str):
+    """Unload a single embedding model from memory"""
+
+    if model_name not in loaded_models:
+        return {
+            "success": True, "unloaded": model_name
+        }
+
+    del loaded_models[model_name]
+    torch.cuda.empty_cache()  # only needed if using CUDA
+
+    return {
+        "success": True, "unloaded": model_name
+    }
+
+
+@app.delete("/unload-all-models")
+def unload_all_models():
+    """Unload all embedding models from memory"""
+
+    if model_name not in loaded_models:
+        del loaded_models[model_name]
+        torch.cuda.empty_cache()  # only needed if using CUDA
+
+    return {
+        "success": True, "unloaded": model_name
+    }
+
+
 @app.get("/models")
 def list_models():
     """List all available model names"""
 
-    return list(models.keys())
+    return list(loaded_models.keys())
 
 
 @app.get("/vector-sizes")
@@ -54,7 +111,7 @@ def vector_sizes():
 
     return {
         name: model.get_sentence_embedding_dimension()
-        for name, model in models.items()
+        for name, model in loaded_models.items()
     }
 
 
@@ -63,7 +120,8 @@ def max_tokens():
     """Return maximum supported token length for each embedding model"""
 
     max_lengths = {}
-    for name, path in model_names.items():
+    for name in loaded_models:
+        path = supported_models[name]
         tokenizer = AutoTokenizer.from_pretrained(path)
         max_lengths[name] = tokenizer.model_max_length
     return max_lengths
@@ -80,10 +138,10 @@ async def embed(request: Request):
     if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
         raise HTTPException(status_code=400, detail="'texts' must be a list of strings")
 
-    if embed_model not in models:
+    if embed_model not in loaded_models:
         raise HTTPException(status_code=400, detail="Embedding model not loaded.")
 
-    model = models[embed_model]
+    model = loaded_models[embed_model]
 
     # Offload encoding to thread pool
     model_encode = await asyncio.get_event_loop().run_in_executor(
