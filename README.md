@@ -7,7 +7,7 @@ With support for streaming responses, dynamic model selection, and rich formatti
 
 ## System Architecture
 
-<img src="pics/rag-talk.jpeg" alt="segment" width="650">
+<img src="pics/rag-talk.jpeg" alt="segment" width="750">
 
 ### Embedding
 
