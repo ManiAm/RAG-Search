@@ -230,13 +230,35 @@ class Qdrant_DB():
         return True, None
 
 
-    def get_retriever(self, embed_model, collection_name, search_type="similarity", k=6):
+    def get_retriever(self, embed_model, collection_name, search_type="similarity", k=6, metadata_filter=None):
         """
-        search_type defines the type of search that the Retriever should perform:
+        Returns a retriever from the Qdrant vector store configured with the specified search strategy,
+        number of top results, and optional metadata filter.
 
-            "similarity"                 : Returns the top-k documents most similar to the query.
-            "mmr"                        : Returns relevant and diverse documents to reduce redundancy.
-            "similarity_score_threshold" : Returns only documents with a similarity score above a given threshold.
+        Parameters:
+            embed_model (str):
+                The name of the embedding model used to create the vector store.
+
+            collection_name (str):
+                The name of the Qdrant collection to retrieve documents from.
+
+            search_type (str):
+                The retrieval strategy to use. Options include:
+                    - "similarity"                 : Returns top-k most similar documents.
+                    - "mmr"                        : Returns relevant and diverse documents.
+                    - "similarity_score_threshold" : Returns only documents above a score threshold.
+
+            k (int):
+                The number of top documents to retrieve (top-k).
+
+            metadata_filter (dict, optional):
+                A Qdrant filter object to restrict results to documents with matching metadata.
+                Example:
+                    {
+                        "must": [
+                            {"key": "type", "match": {"value": "email"}}
+                        ]
+                    }
         """
 
         status, output = self.get_store(embed_model, collection_name, create_collection=False)
@@ -245,7 +267,9 @@ class Qdrant_DB():
 
         qdrant_store = output
 
-        retriever = qdrant_store.as_retriever(search_type=search_type, k=k)
+        search_kwargs = {"filter": metadata_filter} if metadata_filter else {}
+
+        retriever = qdrant_store.as_retriever(search_type=search_type, k=k, search_kwargs=search_kwargs)
 
         return True, retriever
 

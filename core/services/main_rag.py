@@ -238,13 +238,7 @@ def upload_file(file: UploadFile = File(...),
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: splitting document...")
 
-    max_tokens_map = qdrant_obj.get_model_max_token()
-    max_tokens = max_tokens_map.get(embed_model, None)
-    avg_chars_per_token = 3.5  # in English
-    approx_max_characters = max_tokens * avg_chars_per_token
-
-    if chunk_size > approx_max_characters:
-        print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
+    check_chunk_size(chunk_size, embed_model)
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
                                               chunk_overlap=200,
@@ -302,13 +296,7 @@ def paste_text(req: PasteRequest):
     # Convert to Document object
     doc = Document(page_content=text, metadata=metadata)
 
-    max_tokens_map = qdrant_obj.get_model_max_token()
-    max_tokens = max_tokens_map.get(embed_model, None)
-    avg_chars_per_token = 3.5  # in English
-    approx_max_characters = max_tokens * avg_chars_per_token
-
-    if chunk_size > approx_max_characters:
-        print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
+    check_chunk_size(chunk_size, embed_model)
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
                                               chunk_overlap=200,
@@ -330,6 +318,26 @@ def paste_text(req: PasteRequest):
         "collection_name": collection_name,
         "chunks": len(filtered_chunks)
     }
+
+
+def check_chunk_size(chunk_size, embed_model):
+
+    max_tokens_map = qdrant_obj.get_model_max_token()
+    if not max_tokens_map:
+        return
+
+    if not isinstance(max_tokens_map, dict):
+        return
+
+    max_tokens = max_tokens_map.get(embed_model, None)
+    if not max_tokens:
+        return
+
+    avg_chars_per_token = 3.5  # in English
+    approx_max_characters = max_tokens * avg_chars_per_token
+
+    if chunk_size > approx_max_characters:
+        print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
 
 
 @app.post("/chat")
