@@ -6,8 +6,9 @@ from queue import Queue
 
 from pydantic import BaseModel
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
+from fastapi import Query
+from fastapi.responses import StreamingResponse
 
 from langchain_ollama import OllamaLLM
 from langchain.prompts import ChatPromptTemplate
@@ -34,6 +35,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     context: Optional[str] = None
 
+#############################
 
 @app.get("/models")
 def get_llm_models():
@@ -41,6 +43,21 @@ def get_llm_models():
     models = ollama_obj.list_models()
     return {"models": models}
 
+
+@app.get("/model-details")
+def get_model_details(model_name: str = Query(...)):
+
+    detail_map = ollama_obj.get_model_details(model_name)
+    return detail_map
+
+
+@app.get("/model-info")
+def get_model_info(model_name: str = Query(...)):
+
+    info_map = ollama_obj.get_model_info(model_name)
+    return info_map
+
+#############################
 
 @app.post("/chat")
 def chat_llm(req: ChatRequest):
