@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, UploadFile, File, Query
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
@@ -69,6 +70,13 @@ class PasteRequest(BaseModel):
     chunk_size: Optional[int] = None
 
 
+class SplitDocument(BaseModel):
+    text: str
+    embed_model: str
+    separators: Optional[List[str]] = None
+    chunk_size: Optional[int] = None
+
+
 class ChatRequest(BaseModel):
     llm_model: str
     embed_model: str
@@ -77,6 +85,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     instructions: Optional[str] = None
 
+###########################
 
 @app.post("/load-model")
 def load_model(models: List[str] = Query(...)):
@@ -107,12 +116,20 @@ def unload_all_models():
 
     return { "success": True }
 
+###########################
 
 @app.get("/embeddings")
 def get_embed_models():
 
     models = qdrant_obj.list_models()
     return {"models": models}
+
+
+@app.get("/max-tokens")
+def get_model_max_tokens():
+
+    max_tokens_map = qdrant_obj.get_model_max_token()
+    return max_tokens_map
 
 
 @app.get("/collections")
@@ -140,6 +157,7 @@ def create_collection(req: CollectionRequest):
         "collection_name": collection_name
     }
 
+###########################
 
 @app.delete("/del-by-filter")
 def delete_by_filter(req: DeleteByFilterRequest):
@@ -199,6 +217,7 @@ def debug_search(
         ]
     }
 
+###########################
 
 @app.post("/upload")
 def upload_file(file: UploadFile = File(...),
@@ -238,26 +257,17 @@ def upload_file(file: UploadFile = File(...),
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: splitting document...")
 
-    check_chunk_size(chunk_size, embed_model)
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
-                                              chunk_overlap=200,
-                                              separators=separators)
-
-    chunks = splitter.split_documents(documents)
-
-    # Filter out metadata types that are not supported for a vector store.
-    filtered_chunks = filter_complex_metadata(chunks)
+    doc_chunks = split_document(documents, embed_model, chunk_size, separators)
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    print(f"{ts}: chunk count: {len(filtered_chunks)}")
+    print(f"{ts}: chunk count: {len(doc_chunks)}")
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: embedding document...")
 
     status, output = qdrant_obj.add_documents(embed_model,
                                               collection_name,
-                                              filtered_chunks)
+                                              doc_chunks)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
@@ -296,19 +306,11 @@ def paste_text(req: PasteRequest):
     # Convert to Document object
     doc = Document(page_content=text, metadata=metadata)
 
-    check_chunk_size(chunk_size, embed_model)
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
-                                              chunk_overlap=200,
-                                              separators=separators)
-
-    chunks = splitter.split_documents([doc])
-
-    filtered_chunks = filter_complex_metadata(chunks)
+    doc_chunks = split_document([doc], embed_model, chunk_size, separators)
 
     status, output = qdrant_obj.add_documents(embed_model,
                                               collection_name,
-                                              filtered_chunks)
+                                              doc_chunks)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
@@ -316,8 +318,56 @@ def paste_text(req: PasteRequest):
         "status": "ok",
         "embed_model": embed_model,
         "collection_name": collection_name,
-        "chunks": len(filtered_chunks)
+        "chunks": len(doc_chunks)
     }
+
+
+@app.post("/split-doc")
+def split_doc(req: SplitDocument):
+
+    text = req.text.strip()
+    embed_model = req.embed_model.strip()
+    chunk_size = req.chunk_size or 1000
+    separators = req.separators or ["\n\n", "\n", " ", ""]
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided.")
+
+    if not embed_model:
+        raise HTTPException(status_code=400, detail="No embed_model provided.")
+
+    # Convert to Document object
+    doc = Document(page_content=text)
+
+    doc_chunks = split_document([doc], embed_model, chunk_size, separators)
+
+    chunks_text = [chunk.page_content for chunk in doc_chunks]
+
+    return JSONResponse(content={"chunks": chunks_text, "count": len(chunks_text)})
+
+
+def split_document(documents, embed_model, chunk_size, separators):
+
+    check_chunk_size(chunk_size, embed_model)
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
+                                              chunk_overlap=200,
+                                              separators=separators)
+
+    chunks = splitter.split_documents(documents)
+
+    # Remove chunks that contain any of the separators
+    filtered = []
+    for chunk in chunks:
+        content = chunk.page_content.strip()
+        any_matched = any(sep == content for sep in separators)
+        if not any_matched:
+            filtered.append(chunk)
+
+    # Filter out metadata types that are not supported for a vector store.
+    filtered_chunks = filter_complex_metadata(filtered)
+
+    return filtered_chunks
 
 
 def check_chunk_size(chunk_size, embed_model):
@@ -339,6 +389,7 @@ def check_chunk_size(chunk_size, embed_model):
     if chunk_size > approx_max_characters:
         print(f"Warning: chunk_size={chunk_size} is bigger than maximum token size of embedding mode {embed_model}")
 
+###########################
 
 @app.post("/chat")
 def chat(req: ChatRequest):
