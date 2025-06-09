@@ -72,7 +72,6 @@ class PasteRequest(BaseModel):
 
 class SplitDocument(BaseModel):
     text: str
-    embed_model: str
     separators: Optional[List[str]] = None
     chunk_size: Optional[int] = None
 
@@ -257,7 +256,9 @@ def upload_file(file: UploadFile = File(...),
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: splitting document...")
 
-    doc_chunks = split_document(documents, embed_model, chunk_size, separators)
+    check_chunk_size(chunk_size, embed_model)
+
+    doc_chunks = split_document(documents, chunk_size, separators)
 
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: chunk count: {len(doc_chunks)}")
@@ -306,7 +307,9 @@ def paste_text(req: PasteRequest):
     # Convert to Document object
     doc = Document(page_content=text, metadata=metadata)
 
-    doc_chunks = split_document([doc], embed_model, chunk_size, separators)
+    check_chunk_size(chunk_size, embed_model)
+
+    doc_chunks = split_document([doc], chunk_size, separators)
 
     status, output = qdrant_obj.add_documents(embed_model,
                                               collection_name,
@@ -326,29 +329,23 @@ def paste_text(req: PasteRequest):
 def split_doc(req: SplitDocument):
 
     text = req.text.strip()
-    embed_model = req.embed_model.strip()
     chunk_size = req.chunk_size or 1000
     separators = req.separators or ["\n\n", "\n", " ", ""]
 
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
 
-    if not embed_model:
-        raise HTTPException(status_code=400, detail="No embed_model provided.")
-
     # Convert to Document object
     doc = Document(page_content=text)
 
-    doc_chunks = split_document([doc], embed_model, chunk_size, separators)
+    doc_chunks = split_document([doc], chunk_size, separators)
 
     chunks_text = [chunk.page_content for chunk in doc_chunks]
 
     return JSONResponse(content={"chunks": chunks_text, "count": len(chunks_text)})
 
 
-def split_document(documents, embed_model, chunk_size, separators):
-
-    check_chunk_size(chunk_size, embed_model)
+def split_document(documents, chunk_size, separators):
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
                                               chunk_overlap=200,
