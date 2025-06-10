@@ -2,6 +2,7 @@
 import os
 import sys
 import json
+import pprint
 from typing import Dict, Optional, Any, List
 from datetime import datetime
 from queue import Queue
@@ -194,11 +195,16 @@ def debug_search(
     ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     print(f"{ts}: /debug-search called with query='{query}', embed_model='{embed_model}', k={k}")
 
-    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=k)
+    status, output = qdrant_obj.get_store(embed_model, collection_name, create_collection=False)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
-    retriever = output
+    qdrant_store = output
+
+    retriever = qdrant_store.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": k}
+    )
 
     try:
         matches = retriever.invoke(query)
@@ -405,11 +411,33 @@ def chat(req: ChatRequest):
     if session_id not in session_histories:
         session_histories[session_id] = ChatMessageHistory()
 
-    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=15)
+    status, output = qdrant_obj.get_store(embed_model, collection_name, create_collection=False)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
-    retriever = output
+    qdrant_store = output
+
+    retriever = qdrant_store.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"score_threshold": 0.7}
+    )
+
+    ############
+
+    print("")
+
+    print("============= Question =============")
+    print(f"{question.strip()}")
+    print("===================================")
+
+    print("")
+
+    docs_with_scores = qdrant_store.similarity_search_with_relevance_scores(
+        question,
+        score_threshold=0.7
+    )
+
+    print_retrieved_docs_table(docs_with_scores)
 
     ############
 
@@ -417,17 +445,7 @@ def chat(req: ChatRequest):
 
     print("====== Instructions ======")
     print(f"{instructions.strip()}")
-    print("=====================")
-
-    print("")
-
-    retrieved_docs = retriever.invoke(question)
-
-    retrieved_docs_as_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
-
-    print("====== Context ======")
-    print(f"{retrieved_docs_as_text.strip()}")
-    print("=====================")
+    print("==========================")
 
     print("")
 
@@ -473,7 +491,17 @@ def chat(req: ChatRequest):
         config={"configurable": {"session_id": session_id}}
     )
 
-    print("Response is ready!")
+    ############
+
+    print("")
+
+    print("======== Response ========")
+    print(response["answer"].strip())
+    print("==========================")
+
+    print("")
+
+    ############
 
     return { "answer": response["answer"] }
 
@@ -492,14 +520,37 @@ def chat_stream(req: ChatRequest):
 
     print(f"{ts}: /chat-stream endpoint called with llm_model '{llm_model}', embed_model '{embed_model}', collection_name '{collection_name}', session_id '{session_id}'")
 
-    if session_id not in session_histories:
-        session_histories[session_id] = ChatMessageHistory()
+    # streaming does not work properly with memory
+    # if session_id not in session_histories:
+    session_histories[session_id] = ChatMessageHistory()
 
-    status, output = qdrant_obj.get_retriever(embed_model, collection_name, k=15)
+    status, output = qdrant_obj.get_store(embed_model, collection_name, create_collection=False)
     if not status:
         raise HTTPException(status_code=400, detail=output)
 
-    retriever = output
+    qdrant_store = output
+
+    retriever = qdrant_store.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={"score_threshold": 0.7}
+    )
+
+    ############
+
+    print("")
+
+    print("============= Question =============")
+    print(f"{question.strip()}")
+    print("===================================")
+
+    print("")
+
+    docs_with_scores = qdrant_store.similarity_search_with_relevance_scores(
+        question,
+        score_threshold=0.7
+    )
+
+    print_retrieved_docs_table(docs_with_scores)
 
     ############
 
@@ -507,17 +558,7 @@ def chat_stream(req: ChatRequest):
 
     print("====== Instructions ======")
     print(f"{instructions.strip()}")
-    print("=====================")
-
-    print("")
-
-    retrieved_docs = retriever.invoke(question)
-
-    retrieved_docs_as_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
-
-    print("====== Context ======")
-    print(f"{retrieved_docs_as_text.strip()}")
-    print("=====================")
+    print("==========================")
 
     print("")
 
@@ -552,7 +593,8 @@ def chat_stream(req: ChatRequest):
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
-        combine_docs_chain_kwargs={"prompt": custom_prompt}
+        combine_docs_chain_kwargs={"prompt": custom_prompt},
+        return_source_documents=False
     )
 
     chain_with_memory = RunnableWithMessageHistory(
@@ -574,8 +616,33 @@ def chat_stream(req: ChatRequest):
             )
         except Exception as e:
             q.put(f"\n[ERROR] {str(e)}")
+        finally:
             q.put(None)
 
     return StreamingResponse(token_generator(run_chain, q),
                              media_type="text/plain",
                              headers={"X-Accel-Buffering": "no"})
+
+
+def print_retrieved_docs_table(docs_with_scores):
+
+    print(f"Found {len(docs_with_scores)} documents.")
+
+    docs_with_scores.sort(key=lambda x: x[1], reverse=True)
+
+    for idx, (doc, score) in enumerate(docs_with_scores):
+
+        print(f"\nDocument {idx+1}")
+
+        print(f"Score: {score}")
+
+        print("\nMetadata:\n")
+        metadata = doc.metadata
+        pretty = pprint.pformat(metadata)
+        indented = "\n".join(" "*5 + line for line in pretty.splitlines())
+        print(indented)
+
+        print("\nContent:\n")
+        doc_txt = doc.page_content
+        indented = "\n".join(" "*5 + line for line in doc_txt.splitlines())
+        print(indented)

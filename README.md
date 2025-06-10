@@ -13,7 +13,7 @@ With support for streaming responses, dynamic model selection, and rich formatti
 
 Embedding is the process of transforming raw data-such as words, sentences, or documents-into numerical vectors. These vectors represent the semantic meaning of that data in a continuous, high-dimensional space. This means that similar meanings are close together in the vector space-even if the words are different. For example, embeddings allow systems to identify that "cat" and "kitten" are more similar than "cat" and "car". This enables machines to compare and reason about language in a more meaningful way than using raw text.
 
-To maintain modularity and scalability, RAG-Talk is designed to support `remote embedding` inference. Instead of performing embedding computations locally, RAG-Talk sends text data over HTTP to a dedicated embedding server-typically running on a host with GPU acceleration. This separation allows embedding workloads to be isolated from the main application, ensuring better performance, efficient GPU utilization, and easier horizontal scaling. The main application simply sends a request and receives a semantic vector in response, making it easy to plug in different embedding models or upgrade hardware independently of the rest of the system.
+To maintain modularity and scalability, RAG-Talk is designed to support `remote` embedding. Instead of performing embedding computations locally, RAG-Talk sends text data over HTTP to a dedicated embedding server-typically running on a host with GPU acceleration. This separation allows embedding workloads to be isolated from the main application, ensuring better performance, efficient GPU utilization, and easier horizontal scaling. The main application simply sends a request and receives a semantic vector in response, making it easy to plug in different embedding models or upgrade hardware independently of the rest of the system.
 
 Similarly, the LLM backend-powered by Ollama-can also run on a separate server. This decoupling means RAG-Talk can communicate with powerful language models hosted elsewhere, whether on-premise or in the cloud. This architecture provides flexibility: developers can use lightweight machines for the web interface and delegate heavy model inference to machines with specialized resources like GPUs. It also opens the door for model multiplexing and centralized model orchestration, without complicating the frontend experience.
 
@@ -138,6 +138,8 @@ RAG-Talk exposes a set of RESTful API endpoints grouped into two categories:
     | Method | Endpoint             | Description                                                             |
     |--------|----------------------|-------------------------------------------------------------------------|
     | GET    | /llm/models          | Returns list of available LLM models from the Ollama backend            |
+    | GET    | /llm/model-info      | Returns basic model metadata (e.g., architecture, quantization, vocab)  |
+    | GET    | /llm/model-details   | Returns extended details including parameters, tokenizer info, etc.     |
     | POST   | /llm/chat            | Sends a question to the selected LLM model and returns full response    |
     | POST   | /llm/chat-stream     | Same as `/chat`, but returns streamed output as text chunks             |
 
@@ -151,7 +153,6 @@ RAG-Talk exposes a set of RESTful API endpoints grouped into two categories:
     | GET    | /rag/collections         | Lists all available vector collections                                  |
     | POST   | /rag/create-collections  | Creates a new vector collection                                         |
     | DELETE | /rag/del-by-filter       | Deletes vectors matching a filter from a collection                     |
-    | GET    | /rag/debug-search        | Performs a raw semantic search and returns the top matching documents   |
     | POST   | /rag/upload              | Uploads a document to be embedded, and added to vector store            |
     | POST   | /rag/paste               | Accepts pasted document text to embed and store                         |
     | POST   | /rag/chat                | Performs retrieval-augmented chat using the selected embedding          |
