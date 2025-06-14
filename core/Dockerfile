@@ -33,6 +33,7 @@ RUN pip install \
     langgraph \
     openai \
     "unstructured[pdf]" \
+    "unstructured[docx]" \
     faiss-gpu \
     "numpy<2" \
     qdrant-client \
