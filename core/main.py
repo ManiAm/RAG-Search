@@ -18,7 +18,7 @@ import services.main_llm  # Direct LLM interaction
 import services.main_rag  # RAG functionality
 
 app = FastAPI(
-    title="RAG-Talk API",
+    title="RAG-Search API",
     description="Retrieval-Augmented Generation chat with LLM and document support.",
     version="1.0.0",
     docs_url="/api/docs",
@@ -65,5 +65,5 @@ def health():
 
 if __name__ == "__main__":
 
-    print("Starting RAG-Talk on http://localhost:8000")
+    print("Starting RAG-Search on http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)

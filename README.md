@@ -1,27 +1,27 @@
 
-# RAG-Talk
+# RAG-Search
 
-RAG-Talk is an interactive web application that combines the power of Large Language Models (LLMs) with Retrieval-Augmented Generation (RAG) to deliver intelligent, context-aware conversations. It allows users to chat directly with a local LLM or enhance their queries with document-backed retrieval for precise, grounded responses. The interface supports file uploads and copy-paste input, enabling custom context ingestion via embedding models.
+RAG-Search is an interactive web application that combines the power of Large Language Models (LLMs) with Retrieval-Augmented Generation (RAG) to deliver intelligent, context-aware conversations. It allows users to chat directly with a local LLM or enhance their queries with document-backed retrieval for precise, grounded responses. The interface supports file uploads and copy-paste input, enabling custom context ingestion via embedding models.
 
-With support for streaming responses, dynamic model selection, and rich formatting (Markdown and LaTeX), RAG-Talk is ideal for exploring conversational AI grounded in your own documents - from policies and manuals to research papers and beyond.
+With support for streaming responses, dynamic model selection, and rich formatting (Markdown and LaTeX), RAG-Search is ideal for exploring conversational AI grounded in your own documents - from policies and manuals to research papers and beyond.
 
 ## System Architecture
 
-<img src="pics/rag-talk.jpeg" alt="segment" width="750">
+<img src="pics/rag-search.jpeg" alt="segment" width="750">
 
 ### Embedding
 
 Embedding is the process of transforming raw data-such as words, sentences, or documents-into numerical vectors. These vectors represent the semantic meaning of that data in a continuous, high-dimensional space. This means that similar meanings are close together in the vector space-even if the words are different. For example, embeddings allow systems to identify that "cat" and "kitten" are more similar than "cat" and "car". This enables machines to compare and reason about language in a more meaningful way than using raw text.
 
-To maintain modularity and scalability, RAG-Talk is designed to support `remote` embedding. Instead of performing embedding computations locally, RAG-Talk sends text data over HTTP to a dedicated embedding server-typically running on a host with GPU acceleration. This separation allows embedding workloads to be isolated from the main application, ensuring better performance, efficient GPU utilization, and easier horizontal scaling. The main application simply sends a request and receives a semantic vector in response, making it easy to plug in different embedding models or upgrade hardware independently of the rest of the system.
+To maintain modularity and scalability, RAG-Search is designed to support `remote` embedding. Instead of performing embedding computations locally, RAG-Search sends text data over HTTP to a dedicated embedding server-typically running on a host with GPU acceleration. This separation allows embedding workloads to be isolated from the main application, ensuring better performance, efficient GPU utilization, and easier horizontal scaling. The main application simply sends a request and receives a semantic vector in response, making it easy to plug in different embedding models or upgrade hardware independently of the rest of the system.
 
-Similarly, the LLM backend-powered by Ollama-can also run on a separate server. This decoupling means RAG-Talk can communicate with powerful language models hosted elsewhere, whether on-premise or in the cloud. This architecture provides flexibility: developers can use lightweight machines for the web interface and delegate heavy model inference to machines with specialized resources like GPUs. It also opens the door for model multiplexing and centralized model orchestration, without complicating the frontend experience.
+Similarly, the LLM backend-powered by Ollama-can also run on a separate server. This decoupling means RAG-Search can communicate with powerful language models hosted elsewhere, whether on-premise or in the cloud. This architecture provides flexibility: developers can use lightweight machines for the web interface and delegate heavy model inference to machines with specialized resources like GPUs. It also opens the door for model multiplexing and centralized model orchestration, without complicating the frontend experience.
 
 ### Embedding Models
 
 Embedding models are machine learning models trained to generate these semantic vector representations. They learn from large text corpora to map similar pieces of text closer together in the vector space. Different models specialize in various tasks. Some focus on multilingual understanding (like `bge-large`), while others are optimized for speed or retrieval quality (like OpenAI’s `text-embedding-3-small`). These models power applications like semantic search, document clusterning, recommendation systems, and RAG.
 
-RAG-Talk supports multiple remote embedding models, allowing users to choose the one that best fits their use case-whether prioritizing speed, accuracy, or semantic depth. This flexibility enables users to experiment with different semantic behaviors or optimize performance by switching models on the fly.
+RAG-Search supports multiple remote embedding models, allowing users to choose the one that best fits their use case-whether prioritizing speed, accuracy, or semantic depth. This flexibility enables users to experiment with different semantic behaviors or optimize performance by switching models on the fly.
 
 | Model Name           | Description                                                                                      |
 |----------------------|--------------------------------------------------------------------------------------------------|
@@ -35,9 +35,9 @@ RAG-Talk supports multiple remote embedding models, allowing users to choose the
 | mxbai-embed-large    | Competitive open-source model trained on diverse data; strong performance in multi-domain tasks. |
 | nomic-embed-text     | Embedding model designed for clustering and search; optimized for high recall and quality.       |
 
-RAG-Talk uses [SentenceTransformer](https://sbert.net/), a powerful library built on top of Hugging Face Transformers and PyTorch, to generate embeddings for text segments. This abstraction enables the project to convert user documents and queries into dense semantic vectors suitable for retrieval and comparison. SentenceTransformer simplifies the embedding workflow by wrapping pre-trained [transformer models](https://huggingface.co/models?library=sentence-transformers) with optimized pooling and encoding strategies, while also supporting GPU acceleration for efficient processing.
+RAG-Search uses [SentenceTransformer](https://sbert.net/), a powerful library built on top of Hugging Face Transformers and PyTorch, to generate embeddings for text segments. This abstraction enables the project to convert user documents and queries into dense semantic vectors suitable for retrieval and comparison. SentenceTransformer simplifies the embedding workflow by wrapping pre-trained [transformer models](https://huggingface.co/models?library=sentence-transformers) with optimized pooling and encoding strategies, while also supporting GPU acceleration for efficient processing.
 
-It’s important to note that if a user switches to a different embedding model, any previously ingested documents must be reprocessed using the new model. Each embedding model has its own vector space-meaning vectors generated by one model are not comparable to vectors generated by another. As a result, documents embedded with an old model are no longer relevant or retrievable under the new one. RAG-Talk treats each embedding model as a separate namespace in the vector store, ensuring that search and retrieval are always consistent and accurate within a given embedding context.
+It’s important to note that if a user switches to a different embedding model, any previously ingested documents must be reprocessed using the new model. Each embedding model has its own vector space-meaning vectors generated by one model are not comparable to vectors generated by another. As a result, documents embedded with an old model are no longer relevant or retrievable under the new one. RAG-Search treats each embedding model as a separate namespace in the vector store, ensuring that search and retrieval are always consistent and accurate within a given embedding context.
 
 ### Vector Store Databases
 
@@ -59,19 +59,19 @@ There are many options for [vector store databases](https://db-engines.com/en/ra
 
 `Qdrant` stands out as a powerful open-source vector database that combines fast vector similarity search with advanced metadata filtering, making it ideal for hybrid search applications. It features a clean REST and gRPC API, rich filtering capabilities, and payload indexing, enabling precise control over both vector and structured data. Its balance of performance, ease of use, and production readiness makes Qdrant a good choice for applications that require scalable vector search tightly integrated with metadata filtering.
 
-Unlike some alternatives, Qdrant supports local deployment via Docker, as well as managed cloud options. Running Qdrant inside a container ensures clean separation of concerns and easier deployment. This encapsulation provides operational flexibility, making it easy to scale, upgrade, or isolate the vector store without affecting other parts of the system. It also aligns with the microservice-oriented nature of RAG-Talk, allowing independent control over data storage and compute layers.
+Unlike some alternatives, Qdrant supports local deployment via Docker, as well as managed cloud options. Running Qdrant inside a container ensures clean separation of concerns and easier deployment. This encapsulation provides operational flexibility, making it easy to scale, upgrade, or isolate the vector store without affecting other parts of the system. It also aligns with the microservice-oriented nature of RAG-Search, allowing independent control over data storage and compute layers.
 
 #### Embedding Model Collections in Qdrant
 
-Each embedding model supported by RAG-Talk is mapped to a unique `collection` inside Qdrant. These collections are configured with the corresponding vector size (i.e., the output dimensionality of the embedding model) and use `cosine` similarity as the distance metric for semantic comparisons. This design ensures that embeddings from different models are not mixed, preserving the integrity of the retrieval process. When a user switches to a new model, a new collection is used automatically, making it easy to maintain clean, isolated retrieval spaces per model.
+Each embedding model supported by RAG-Search is mapped to a unique `collection` inside Qdrant. These collections are configured with the corresponding vector size (i.e., the output dimensionality of the embedding model) and use `cosine` similarity as the distance metric for semantic comparisons. This design ensures that embeddings from different models are not mixed, preserving the integrity of the retrieval process. When a user switches to a new model, a new collection is used automatically, making it easy to maintain clean, isolated retrieval spaces per model.
 
 #### Deduplication via MD5 Hashing
 
-To prevent duplicate content from being stored and embedded multiple times, RAG-Talk uses a deduplication technique based on MD5 hashing. Before any document chunk is added to Qdrant, its content is hashed and compared against existing hashes. If the hash already exists, the document is skipped. This mechanism reduces unnecessary storage, avoids redundant computation, and ensures that retrieval results remain meaningful and diverse. The MD5-based approach is lightweight, fast, and effective for most use cases involving text document ingestion.
+To prevent duplicate content from being stored and embedded multiple times, RAG-Search uses a deduplication technique based on MD5 hashing. Before any document chunk is added to Qdrant, its content is hashed and compared against existing hashes. If the hash already exists, the document is skipped. This mechanism reduces unnecessary storage, avoids redundant computation, and ensures that retrieval results remain meaningful and diverse. The MD5-based approach is lightweight, fast, and effective for most use cases involving text document ingestion.
 
 ### Document Load and Split
 
-In the RAG-Talk project, the document ingestion pipeline begins with the use of `UnstructuredLoader`, a powerful utility from the `langchain_unstructured` module that supports a wide range of file formats-including `.txt`, `.pdf`, `.docx`, `.html`, and more. This loader automatically extracts clean, structured content from these formats without requiring manual parsing logic for each file type. This not only simplifies integration with various document sources but also ensures consistent and reliable text extraction across heterogeneous data formats, which is essential for robust RAG systems.
+In the RAG-Search project, the document ingestion pipeline begins with the use of `UnstructuredLoader`, a powerful utility from the `langchain_unstructured` module that supports a wide range of file formats-including `.txt`, `.pdf`, `.docx`, `.html`, and more. This loader automatically extracts clean, structured content from these formats without requiring manual parsing logic for each file type. This not only simplifies integration with various document sources but also ensures consistent and reliable text extraction across heterogeneous data formats, which is essential for robust RAG systems.
 
 After loading the documents, we use the `RecursiveCharacterTextSplitter` to divide the content into manageable chunks. This splitter intelligently breaks down long documents by recursively looking for natural split points-such as paragraph breaks or sentence boundaries-before resorting to fixed-size chunks.
 
@@ -87,9 +87,9 @@ Start all the containers:
 
     docker compose up -d
 
-Allow enough time for the `rag-talk` container to get initialized. The `rag-talk` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
+Allow enough time for the `rag-search` container to get initialized. The `rag-search` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
 
-These URLs provide access to different parts of the `rag-talk`:
+These URLs provide access to different parts of the `rag-search`:
 
 - Web Interface: http://localhost:8000/
 - Swagger API docs: http://localhost:8000/api/docs
@@ -131,7 +131,7 @@ This should print `True` if PyTorch detects a CUDA-compatible GPU.
 
 ## API Endpoints
 
-RAG-Talk exposes a set of RESTful API endpoints grouped into two categories:
+RAG-Search exposes a set of RESTful API endpoints grouped into two categories:
 
 - **LLM Endpoints**: For direct interaction with large language models.
 
@@ -158,7 +158,7 @@ RAG-Talk exposes a set of RESTful API endpoints grouped into two categories:
     | POST   | /rag/chat                | Performs retrieval-augmented chat using the selected embedding          |
     | POST   | /rag/chat-stream         | Same as `/rag/chat`, but streams the model's response in real-time      |
 
-Streaming responses allow the language model to return output incrementally-token by token-rather than waiting for the entire answer to be generated before sending it. This creates a more interactive and responsive user experience, especially for longer answers, as users can begin reading the model's reply almost immediately. In RAG-Talk, streaming is supported for both direct LLM chat and RAG-based responses.
+Streaming responses allow the language model to return output incrementally-token by token-rather than waiting for the entire answer to be generated before sending it. This creates a more interactive and responsive user experience, especially for longer answers, as users can begin reading the model's reply almost immediately. In RAG-Search, streaming is supported for both direct LLM chat and RAG-based responses.
 
 For example, to retrieve a list of supported LLM models, you can use the following `curl` command:
 
@@ -193,13 +193,13 @@ Example response:
 
 ## Front-end
 
-The RAG-Talk web interface is designed to provide an intuitive experience for users interacting with local LLMs and RAG pipelines. The application interface is divided into two main tabs: LLM and RAG, each tailored to a specific mode of interaction.
+The RAG-Search web interface is designed to provide an intuitive experience for users interacting with local LLMs and RAG pipelines. The application interface is divided into two main tabs: LLM and RAG, each tailored to a specific mode of interaction.
 
 ### LLM Tab
 
 The LLM tab enables users to interact directly with a selected language model. The frontend automatically fetches and populates the list of available LLMs by querying the backend, ensuring users can always choose from the latest configured models. Users can input a question and optionally enable streaming mode to receive the response in real time as it's generated.
 
-A session ID field allows users to maintain conversation state across multiple turns. This is made possible through an in-memory message history implementation in the backend, leveraging `RunnableWithMessageHistory` from LangChain. This approach allows RAG-Talk to maintain contextual continuity without relying on persistent databases, which is particularly useful for short-lived or ephemeral sessions.
+A session ID field allows users to maintain conversation state across multiple turns. This is made possible through an in-memory message history implementation in the backend, leveraging `RunnableWithMessageHistory` from LangChain. This approach allows RAG-Search to maintain contextual continuity without relying on persistent databases, which is particularly useful for short-lived or ephemeral sessions.
 
 <img src="pics/llm-chat.png" alt="segment" width="600">
 

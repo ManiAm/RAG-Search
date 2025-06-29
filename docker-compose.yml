@@ -46,10 +46,10 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
-  rag-talk:
+  rag-search:
     build: ./core
-    container_name: rag-talk
-    hostname: rag-talk
+    container_name: rag-search
+    hostname: rag-search
     tty: true
     networks:
       - ragnet
