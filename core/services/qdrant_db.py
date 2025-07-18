@@ -2,13 +2,14 @@
 import sys
 import requests
 import hashlib
+import uuid
 
 from langchain.schema import Document
 from langchain_qdrant import QdrantVectorStore
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
-from qdrant_client.http.models import Filter, FieldCondition, MatchValue, FilterSelector
+from qdrant_client.http.models import Filter, FieldCondition, MatchValue, FilterSelector, PointStruct
 
 from services.remote_embedding import RemoteEmbedding
 
@@ -163,6 +164,32 @@ class Qdrant_DB():
 
         return True, None
 
+    ####################
+
+    def add_documents(self, embed_model, collection_name, chunks, batch_size=100):
+
+        status, output = self.get_store(embed_model, collection_name)
+        if not status:
+            return False, output
+
+        qdrant_store = output
+
+        status, output = self.deduplicate(collection_name, chunks)
+        if not status:
+            return False, output
+
+        valid_docs, ids_to_add = output
+
+        try:
+            for i in range(0, len(valid_docs), batch_size):
+                batch_docs = valid_docs[i:i + batch_size]
+                batch_ids = ids_to_add[i:i + batch_size]
+                qdrant_store.add_documents(batch_docs, ids=batch_ids)
+        except Exception as e:
+            return False, str(e)
+
+        return True, None
+
 
     def get_store(self, embed_model, collection_name, create_collection=True):
 
@@ -186,15 +213,7 @@ class Qdrant_DB():
         return True, store
 
 
-    def add_documents(self, embed_model, collection_name, chunks, batch_size=100):
-
-        status, output = self.get_store(embed_model, collection_name)
-        if not status:
-            return False, output
-
-        qdrant_store = output
-
-        #########
+    def deduplicate(self, collection_name, chunks):
 
         valid_docs = []
         ids_to_add = []
@@ -219,15 +238,48 @@ class Qdrant_DB():
             valid_docs.append(doc)
             ids_to_add.append(point_id)
 
+        return True, (valid_docs, ids_to_add)
+
+
+    ####################
+
+    def add_points(self, embed_model, collection_name, vectors, texts=None, metadata=None):
+
+        if not vectors:
+            return False, "No vectors provided."
+
+        if texts and len(texts) != len(vectors):
+            return False, "Length of 'texts' must match 'vectors'."
+
         try:
-            for i in range(0, len(valid_docs), batch_size):
-                batch_docs = valid_docs[i:i + batch_size]
-                batch_ids = ids_to_add[i:i + batch_size]
-                qdrant_store.add_documents(batch_docs, ids=batch_ids)
+            points = []
+
+            for i, vector in enumerate(vectors):
+
+                payload = {"model": embed_model}
+
+                if metadata:
+                    payload["metadata"] = metadata
+
+                if texts:
+                    payload["page_content"] = texts[i]
+
+                point = PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload=payload
+                )
+                points.append(point)
+
+            self.qdrant_client.upsert(
+                collection_name=collection_name,
+                points=points
+            )
+
+            return True, None
+
         except Exception as e:
             return False, str(e)
-
-        return True, None
 
 
     def delete_points_by_filter(self, collection_name, filter_dict):

@@ -11,6 +11,7 @@ from langchain.embeddings.base import Embeddings
 class RemoteEmbedding(Embeddings):
 
     def __init__(self, endpoint: str, model = None):
+
         self.endpoint = endpoint.rstrip("/")
         self.model = model
 

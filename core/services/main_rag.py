@@ -25,6 +25,7 @@ from langchain.schema.document import Document
 
 import config
 from services.ollama_models import OllamaModels
+from services.remote_embedding import RemoteEmbedding
 from services.qdrant_db import Qdrant_DB
 from services.streaming import token_generator, QueueCallbackHandler
 
@@ -75,6 +76,21 @@ class SplitDocument(BaseModel):
     text: str
     separators: Optional[List[str]] = None
     chunk_size: Optional[int] = None
+
+
+class EmbedTextRequest(BaseModel):
+    text: str
+    embed_model: str
+    separators: Optional[List[str]] = None
+    chunk_size: Optional[int] = None
+
+
+class AddPointsRequest(BaseModel):
+    embed_model: str
+    collection_name: str
+    vectors: List[List[float]]
+    texts: Optional[List[str]] = None
+    metadata: Optional[Dict] = None
 
 
 class ChatRequest(BaseModel):
@@ -316,6 +332,7 @@ def paste_text(req: PasteRequest):
     check_chunk_size(chunk_size, embed_model)
 
     doc_chunks = split_document([doc], chunk_size, separators)
+    chunk_texts = [chunk.page_content for chunk in doc_chunks]
 
     status, output = qdrant_obj.add_documents(embed_model,
                                               collection_name,
@@ -326,10 +343,83 @@ def paste_text(req: PasteRequest):
     return {
         "status": "ok",
         "embed_model": embed_model,
-        "collection_name": collection_name,
-        "chunks": len(doc_chunks)
+        "chunk_text": chunk_texts,
+        "chunks": len(doc_chunks),
+        "collection_name": collection_name
     }
 
+###########################
+
+@app.post("/embed_text")
+def embedd_text(req: EmbedTextRequest):
+    """
+    Tokenizes the input text into smaller chunks and computes an embedding vector for each chunk
+    using the specified embedding model.
+    """
+
+    text = req.text.strip()
+    embed_model = req.embed_model.strip()
+    chunk_size = req.chunk_size or 1000
+    separators = req.separators or ["\n\n", "\n", " ", ""]
+
+    if not text:
+        raise HTTPException(status_code=400, detail="No text provided.")
+
+    if not embed_model:
+        raise HTTPException(status_code=400, detail="No embed_model provided.")
+
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /embed_text endpoint called with embed_model '{embed_model}'.")
+
+    # Convert to Document object
+    doc = Document(page_content=text)
+
+    check_chunk_size(chunk_size, embed_model)
+
+    doc_chunks = split_document([doc], chunk_size, separators)
+    chunk_texts = [chunk.page_content for chunk in doc_chunks]
+
+    embedding_model = RemoteEmbedding(endpoint=f"{config.embedding_url}/embed", model=embed_model)
+
+    try:
+        vectors = embedding_model.embed_documents(chunk_texts)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
+
+    return {
+        "status": "ok",
+        "embed_model": embed_model,
+        "chunk_text": chunk_texts,
+        "vectors": vectors
+    }
+
+
+@app.post("/add_points")
+def add_points(req: AddPointsRequest):
+    """
+    Insert precomputed embeddings into a Qdrant collection with optional shared metadata.
+    """
+
+    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"{ts}: /add_points endpoint called.")
+
+    status, error = qdrant_obj.add_points(
+        embed_model=req.embed_model,
+        collection_name=req.collection_name,
+        vectors=req.vectors,
+        texts=req.texts,
+        metadata=req.metadata
+    )
+
+    if not status:
+        raise HTTPException(status_code=500, detail=error)
+
+    return {
+        "status": "success",
+        "message": "Embeddings added to Qdrant successfully."
+    }
+
+###########################
 
 @app.post("/split-doc")
 def split_doc(req: SplitDocument):
@@ -353,10 +443,7 @@ def split_doc(req: SplitDocument):
 
 def split_document(documents, chunk_size, separators):
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,
-                                              chunk_overlap=200,
-                                              separators=separators)
-
+    splitter = safe_recursive_splitter(chunk_size, 200, separators)
     chunks = splitter.split_documents(documents)
 
     # Remove chunks that contain any of the separators
@@ -371,6 +458,20 @@ def split_document(documents, chunk_size, separators):
     filtered_chunks = filter_complex_metadata(filtered)
 
     return filtered_chunks
+
+
+def safe_recursive_splitter(chunk_size: int, chunk_overlap: int, separators: list):
+
+    # Ensure chunk_overlap is valid
+    if chunk_overlap >= chunk_size:
+        # Automatically reduce to 25% of chunk_size or less
+        chunk_overlap = max(0, chunk_size // 4)
+
+    return RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=separators
+    )
 
 
 def check_chunk_size(chunk_size, embed_model):
