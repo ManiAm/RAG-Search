@@ -40,7 +40,6 @@ services:
     restart: unless-stopped
     depends_on:
       - qdrant
-      - ollama
       - embed-server
 
 networks:
@@ -48,5 +47,4 @@ networks:
     driver: bridge
 
 volumes:
-  ollama_data:
   qdrant_data:
