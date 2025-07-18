@@ -1,6 +1,7 @@
 
 import uvicorn
 import logging
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.responses import FileResponse
 from fastapi import APIRouter
+
+load_dotenv()
 
 # Suppress info/debug logs from Qdrant or HTTPX
 logging.getLogger("qdrant_client").setLevel(logging.WARNING)

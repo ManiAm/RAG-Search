@@ -16,24 +16,6 @@ services:
     networks:
       - ragnet
 
-  ollama:
-    image: ollama/ollama
-    container_name: ollama_rag
-    hostname: ollama_rag
-    ports:
-      - "11435:11434"
-    restart: unless-stopped
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-    networks:
-      - ragnet
-    volumes:
-      - ollama_data:/root/.ollama
-
   qdrant:
     image: qdrant/qdrant
     container_name: qdrant_rag

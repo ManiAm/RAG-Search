@@ -10,17 +10,18 @@ from fastapi import HTTPException
 from fastapi import Query
 from fastapi.responses import StreamingResponse
 
-from langchain_ollama import OllamaLLM
+from langchain_openai import ChatOpenAI
+from langchain.schema import AIMessage
 from langchain.prompts import ChatPromptTemplate
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 
 import config
-from services.ollama_models import OllamaModels
+from services.lite_llm import LiteLLM
 from services.streaming import token_generator, QueueCallbackHandler
 
-ollama_obj = OllamaModels(config.ollama_url)
-if not ollama_obj.check_health():
+litellm_obj = LiteLLM(config.lite_llm_url)
+if not litellm_obj.is_reachable():
     sys.exit(1)
 
 # Session memory store (in-memory)
@@ -40,21 +41,14 @@ class ChatRequest(BaseModel):
 @app.get("/models")
 def get_llm_models():
 
-    models = ollama_obj.list_models()
+    models = litellm_obj.list_models()
     return {"models": models}
-
-
-@app.get("/model-details")
-def get_model_details(model_name: str = Query(...)):
-
-    detail_map = ollama_obj.get_model_details(model_name)
-    return detail_map
 
 
 @app.get("/model-info")
 def get_model_info(model_name: str = Query(...)):
 
-    info_map = ollama_obj.get_model_info(model_name)
+    info_map = litellm_obj.get_model_info(model_name)
     return info_map
 
 #############################
@@ -86,13 +80,12 @@ def chat_llm(req: ChatRequest):
         Answer:
     """)
 
-    if not ollama_obj.is_available(llm_model):
+    if not litellm_obj.is_available(llm_model):
         raise HTTPException(status_code=400, detail=f"LLM model '{llm_model}' not loaded.")
 
-    llm = OllamaLLM(model=llm_model,
-                    base_url=config.ollama_url,
-                    num_ctx=9000,
-                    temperature=0.5)
+    llm = ChatOpenAI(base_url=config.lite_llm_url,
+                     model=llm_model,
+                     temperature=0.5)
 
     llm_chain = custom_prompt | llm
 
@@ -111,7 +104,11 @@ def chat_llm(req: ChatRequest):
         config={"configurable": {"session_id": session_id}}
     )
 
-    return {"answer": result}
+    if isinstance(result, AIMessage):
+        return {"answer": result.content}
+
+    raise HTTPException(status_code=400, detail=f"Was expecting an AIMessage.")
+
 
 
 @app.post("/chat-stream")
@@ -144,15 +141,15 @@ def chat_stream(req: ChatRequest):
     q = Queue()
     handler = QueueCallbackHandler(queue=q)
 
-    if not ollama_obj.is_available(llm_model):
+    if not litellm_obj.is_available(llm_model):
         raise HTTPException(status_code=400, detail=f"LLM model '{llm_model}' not loaded.")
 
     # Streaming-capable LLM
-    llm = OllamaLLM(model=llm_model,
-                    base_url=config.ollama_url,
-                    num_ctx=9000,
-                    temperature=0.5,
-                    callbacks=[handler])
+    llm = ChatOpenAI(base_url=config.lite_llm_url,
+                     model=llm_model,
+                     temperature=0.5,
+                     callbacks=[handler],
+                     streaming=True)
 
     llm_chain = custom_prompt | llm
 

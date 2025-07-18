@@ -15,7 +15,9 @@ Embedding is the process of transforming raw data-such as words, sentences, or d
 
 To maintain modularity and scalability, RAG-Search is designed to support `remote` embedding. Instead of performing embedding computations locally, RAG-Search sends text data over HTTP to a dedicated embedding server-typically running on a host with GPU acceleration. This separation allows embedding workloads to be isolated from the main application, ensuring better performance, efficient GPU utilization, and easier horizontal scaling. The main application simply sends a request and receives a semantic vector in response, making it easy to plug in different embedding models or upgrade hardware independently of the rest of the system.
 
-Similarly, the LLM backend-powered by Ollama-can also run on a separate server. This decoupling means RAG-Search can communicate with powerful language models hosted elsewhere, whether on-premise or in the cloud. This architecture provides flexibility: developers can use lightweight machines for the web interface and delegate heavy model inference to machines with specialized resources like GPUs. It also opens the door for model multiplexing and centralized model orchestration, without complicating the frontend experience.
+For LLM integration, we leverage [LiteLLM](https://www.litellm.ai/), a lightweight and extensible framework that abstracts over various LLM providers such as OpenAI, Anthropic, Mistral, HuggingFace, Ollama and more. This allows users to easily switch between different LLM backends without changing application logic, offering flexibility for experimentation, cost optimization, or performance tuning. You can find more explanation on LiteLLM setup in my home network in [here](https://blog.homelabtech.dev/content/Local_LLM_Hosting.html#LiteLLM).
+
+This decoupling means RAG-Search can communicate with powerful language models hosted elsewhere, whether on-premise or in the cloud. This architecture provides flexibility: developers can use lightweight machines for the web interface and delegate heavy model inference to machines with specialized resources like GPUs. It also opens the door for model multiplexing and centralized model orchestration, without complicating the frontend experience.
 
 ### Embedding Models
 
@@ -87,31 +89,13 @@ Start all the containers:
 
     docker compose up -d
 
-Allow enough time for the `rag-search` container to get initialized. The `rag-search` backend can connect to ollama, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
+Allow enough time for the `rag-search` container to get initialized. The `rag-search` backend can connect to LiteLLM, qdrant, and embed-server either locally within Docker or externally across hosts (e.g., in production or distributed deployment). In latter case, update the service endpoint URLs in [config.py](core/config.py) as needed.
 
 These URLs provide access to different parts of the `rag-search`:
 
 - Web Interface: http://localhost:8000/
 - Swagger API docs: http://localhost:8000/api/docs
 - API Base URL: http://localhost:8000/api/v1/
-
-### Setting up Ollama Server
-
-Open an interactive shell to the container:
-
-    docker exec -it ollama_rag bash
-
-Run the following to confirm that the container has access to the host GPU:
-
-    nvidia-smi
-
-This should return a table showing your GPU, driver version, and usage.
-
-You can also check `docker logs ollama_rag` to ensure that the GPU is detected.
-
-Pull a LLM model:
-
-    ollama pull llama3:8b
 
 ### Setting up Embedding Server
 
@@ -122,6 +106,8 @@ To verify that GPU support is working inside the `embed-server` container, open 
 Run the following to confirm that the container has access to the host GPU:
 
     nvidia-smi
+
+This should return a table showing your GPU, driver version, and usage.
 
 Confirm that CUDA is available in Python:
 
@@ -137,7 +123,7 @@ RAG-Search exposes a set of RESTful API endpoints grouped into two categories:
 
     | Method | Endpoint             | Description                                                             |
     |--------|----------------------|-------------------------------------------------------------------------|
-    | GET    | /llm/models          | Returns list of available LLM models from the Ollama backend            |
+    | GET    | /llm/models          | Returns list of available LLM models from LiteLLM                       |
     | GET    | /llm/model-info      | Returns basic model metadata (e.g., architecture, quantization, vocab)  |
     | GET    | /llm/model-details   | Returns extended details including parameters, tokenizer info, etc.     |
     | POST   | /llm/chat            | Sends a question to the selected LLM model and returns full response    |

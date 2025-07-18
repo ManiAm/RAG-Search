@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
-from langchain_ollama import OllamaLLM
+from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_unstructured import UnstructuredLoader
 from langchain.prompts import PromptTemplate
@@ -24,15 +24,14 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain.schema.document import Document
 
 import config
-from services.ollama_models import OllamaModels
+from services.lite_llm import LiteLLM
 from services.remote_embedding import RemoteEmbedding
 from services.qdrant_db import Qdrant_DB
 from services.streaming import token_generator, QueueCallbackHandler
 
-ollama_obj = OllamaModels(config.ollama_url)
-if not ollama_obj.check_health():
+litellm_obj = LiteLLM(config.lite_llm_url)
+if not litellm_obj.is_reachable():
     sys.exit(1)
-print("Ollama server is reachable.")
 
 qdrant_obj = Qdrant_DB(qdrant_url=config.qdrant_url, embedding_url=config.embedding_url)
 
@@ -564,13 +563,12 @@ def chat(req: ChatRequest):
         Answer:
     """)
 
-    if not ollama_obj.is_available(llm_model):
+    if not litellm_obj.is_available(llm_model):
         raise HTTPException(status_code=400, detail=f"LLM model '{llm_model}' not loaded.")
 
-    llm = OllamaLLM(model=llm_model,
-                    base_url=config.ollama_url,
-                    num_ctx=9000,
-                    temperature=0.5)
+    llm = ChatOpenAI(base_url=config.lite_llm_url,
+                     model=llm_model,
+                     temperature=0.5)
 
     # This will inject the retrieved documents into {context} in the prompt
     qa_chain = ConversationalRetrievalChain.from_llm(llm=llm,
@@ -680,15 +678,15 @@ def chat_stream(req: ChatRequest):
     q = Queue()
     handler = QueueCallbackHandler(queue=q)
 
-    if not ollama_obj.is_available(llm_model):
+    if not litellm_obj.is_available(llm_model):
         raise HTTPException(status_code=400, detail=f"LLM model '{llm_model}' not loaded.")
 
     # Streaming-capable LLM
-    llm = OllamaLLM(model=llm_model,
-                    base_url=config.ollama_url,
-                    num_ctx=9000,
-                    temperature=0.5,
-                    callbacks=[handler])
+    llm = ChatOpenAI(base_url=config.lite_llm_url,
+                     model=llm_model,
+                     temperature=0.5,
+                     callbacks=[handler],
+                     streaming=True)
 
     # This will inject the retrieved documents into {context} in the prompt
     qa_chain = ConversationalRetrievalChain.from_llm(
