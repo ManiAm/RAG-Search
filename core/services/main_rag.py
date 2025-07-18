@@ -99,6 +99,8 @@ class ChatRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
     instructions: Optional[str] = None
+    score_threshold: Optional[float] = None
+    max_documents: Optional[int] = None
 
 ###########################
 
@@ -505,6 +507,8 @@ def chat(req: ChatRequest):
     session_id = req.session_id or "default"
     instructions = req.instructions or ""
     question = req.question
+    score_threshold = req.score_threshold or 0.7
+    max_documents = req.max_documents or 5
 
     print(f"{ts}: /chat endpoint called with llm_model '{llm_model}', embed_model '{embed_model}', collection_name '{collection_name}', session_id '{session_id}'")
 
@@ -519,7 +523,10 @@ def chat(req: ChatRequest):
 
     retriever = qdrant_store.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={"score_threshold": 0.7}
+        search_kwargs={
+            "score_threshold": score_threshold,
+            "k": max_documents
+        }
     )
 
     ############
@@ -534,7 +541,8 @@ def chat(req: ChatRequest):
 
     docs_with_scores = qdrant_store.similarity_search_with_relevance_scores(
         question,
-        score_threshold=0.7
+        score_threshold=score_threshold,
+        k=max_documents
     )
 
     print_retrieved_docs_table(docs_with_scores)
@@ -616,6 +624,8 @@ def chat_stream(req: ChatRequest):
     session_id = req.session_id or "default"
     instructions = req.instructions or ""
     question = req.question
+    score_threshold = req.score_threshold or 0.7
+    max_documents = req.max_documents or 5
 
     print(f"{ts}: /chat-stream endpoint called with llm_model '{llm_model}', embed_model '{embed_model}', collection_name '{collection_name}', session_id '{session_id}'")
 
@@ -631,7 +641,10 @@ def chat_stream(req: ChatRequest):
 
     retriever = qdrant_store.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={"score_threshold": 0.7}
+        search_kwargs={
+            "score_threshold": score_threshold,
+            "k": max_documents
+        }
     )
 
     ############
@@ -646,7 +659,8 @@ def chat_stream(req: ChatRequest):
 
     docs_with_scores = qdrant_store.similarity_search_with_relevance_scores(
         question,
-        score_threshold=0.7
+        score_threshold=score_threshold,
+        k=max_documents
     )
 
     print_retrieved_docs_table(docs_with_scores)
