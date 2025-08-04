@@ -201,14 +201,15 @@ Additionally, users can provide custom instructions to guide the LLM's behavior 
 
 To test document ingestion and retrieval, plain-text books from [Project Gutenberg](https://www.gutenberg.org/) offer an excellent resource. These books are in the public domain and typically contain hundreds of pages of clean, structured text without any images or complex formatting. For example, [The Evolution of Modern Medicine by William Osler](https://www.gutenberg.org/ebooks/1566) (approximately 300 pages) can be downloaded in text format and uploaded through the RAG interface. Once submitted, the backend processes the document-loading, chunking, embedding, and storing it into Qdrant.
 
-| Parameter       | Value                 |
-|-----------------|-----------------------|
-| chunk_size      | `1000` Characters     |
-| chunk_overlap   | `200`                 |
-| llm_model       | `llama3.1:8b`         |
-| embedding_model | `bge-large-en-v1.5`   |
-| search_type     | `similarity`          |
-| k               | `15`                  |
+| Parameter        | Value                 |
+|------------------|-----------------------|
+| chunk_size       | `1000` Characters     |
+| chunk_overlap    | `200`                 |
+| llm_model        | `llama3.1:8b`         |
+| embedding_model  | `bge-large-en-v1.5`   |
+| search_type      | `similarity_score`    |
+| score_threshold  | `0.7`                 |
+| k                | `5`                   |
 
 Last but not least, the following instruction is used:
 
